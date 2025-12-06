@@ -1,4 +1,4 @@
-FROM php:8.2-fpm
+FROM php:8.4-fpm
 
 # Set working directory
 WORKDIR /var/www/html
@@ -40,58 +40,126 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Copy application files
 COPY . .
 
+# Create Nginx directories with proper permissions
+RUN mkdir -p /var/lib/nginx/body /var/lib/nginx/fastcgi /var/lib/nginx/proxy /var/lib/nginx/scgi /var/lib/nginx/uwsgi /var/log/nginx \
+    && chown -R www-data:www-data /var/lib/nginx /var/log/nginx
+
+# Configure Nginx to run as www-data (nginx will drop privileges itself)
+RUN sed -i 's/user .*/user www-data;/' /etc/nginx/nginx.conf || echo 'user www-data;' >> /etc/nginx/nginx.conf
+
+# Copy Nginx configuration and update for production (use localhost TCP instead of docker service name)
+COPY docker/nginx/default.conf /tmp/nginx-default.conf
+RUN sed 's/fastcgi_pass app:9000;/fastcgi_pass 127.0.0.1:9000;/' /tmp/nginx-default.conf > /etc/nginx/sites-available/default \
+    && rm /tmp/nginx-default.conf
+
+# Create necessary directories with proper permissions before composer install
+RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache
+
+# Set COMPOSER_ALLOW_SUPERUSER to avoid warnings
+ENV COMPOSER_ALLOW_SUPERUSER=1
+
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
 # Install Node dependencies and build assets
 RUN npm ci && npm run build
 
-# Configure PHP-FPM to listen on socket
-RUN sed -i 's/listen = .*/listen = \/var\/run\/php\/php8.2-fpm.sock/' /usr/local/etc/php-fpm.d/www.conf \
-    && sed -i 's/;listen.owner = www-data/listen.owner = www-data/' /usr/local/etc/php-fpm.d/www.conf \
-    && sed -i 's/;listen.group = www-data/listen.group = www-data/' /usr/local/etc/php-fpm.d/www.conf
+# Create PHP-FPM log directory with proper permissions
+RUN mkdir -p /var/log/php8.4-fpm \
+    && chown -R www-data:www-data /var/log/php8.4-fpm
 
-# Create Nginx configuration for production
-RUN echo 'server {' > /etc/nginx/sites-available/default \
-    && echo '    listen 80;' >> /etc/nginx/sites-available/default \
-    && echo '    server_name _;' >> /etc/nginx/sites-available/default \
-    && echo '    root /var/www/html/public;' >> /etc/nginx/sites-available/default \
-    && echo '    index index.php index.html;' >> /etc/nginx/sites-available/default \
-    && echo '' >> /etc/nginx/sites-available/default \
-    && echo '    location / {' >> /etc/nginx/sites-available/default \
-    && echo '        try_files $uri $uri/ /index.php?$query_string;' >> /etc/nginx/sites-available/default \
-    && echo '    }' >> /etc/nginx/sites-available/default \
-    && echo '' >> /etc/nginx/sites-available/default \
-    && echo '    location ~ \.php$ {' >> /etc/nginx/sites-available/default \
-    && echo '        fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;' >> /etc/nginx/sites-available/default \
-    && echo '        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;' >> /etc/nginx/sites-available/default \
-    && echo '        include fastcgi_params;' >> /etc/nginx/sites-available/default \
-    && echo '        fastcgi_hide_header X-Powered-By;' >> /etc/nginx/sites-available/default \
-    && echo '    }' >> /etc/nginx/sites-available/default \
-    && echo '' >> /etc/nginx/sites-available/default \
-    && echo '    client_max_body_size 20M;' >> /etc/nginx/sites-available/default \
-    && echo '}' >> /etc/nginx/sites-available/default
+# Configure PHP-FPM to listen on TCP (more reliable in containers than Unix socket)
+RUN sed -i 's/listen = .*/listen = 127.0.0.1:9000/' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -i 's/user = .*/user = www-data/' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -i 's/group = .*/group = www-data/' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -i 's|;error_log = log/php8.4-fpm.log|error_log = /var/log/php8.4-fpm/error.log|' /usr/local/etc/php-fpm.conf \
+    && sed -i 's|;php_admin_value\[error_log\]|php_admin_value[error_log]|' /usr/local/etc/php-fpm.d/www.conf || true
 
-# Set permissions
+# Ensure permissions are correct (directories already created above)
 RUN chmod -R 775 storage bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache /var/www/html
+
+# Create startup script that initializes Laravel and starts services
+RUN echo '#!/bin/bash' > /usr/local/bin/start.sh \
+    && echo 'set -e' >> /usr/local/bin/start.sh \
+    && echo '' >> /usr/local/bin/start.sh \
+    && echo '# Ensure .env exists (create from example if missing)' >> /usr/local/bin/start.sh \
+    && echo 'if [ ! -f .env ]; then' >> /usr/local/bin/start.sh \
+    && echo '    [ -f .env.example ] && cp .env.example .env || touch .env' >> /usr/local/bin/start.sh \
+    && echo 'fi' >> /usr/local/bin/start.sh \
+    && echo '' >> /usr/local/bin/start.sh \
+    && echo '# Clear any cached config first (must be before generating key)' >> /usr/local/bin/start.sh \
+    && echo 'php artisan config:clear || true' >> /usr/local/bin/start.sh \
+    && echo 'php artisan route:clear || true' >> /usr/local/bin/start.sh \
+    && echo '' >> /usr/local/bin/start.sh \
+    && echo '# Generate APP_KEY if not set or empty' >> /usr/local/bin/start.sh \
+    && echo '# Railway may set APP_KEY="" which overrides .env, so we remove it from env and use .env' >> /usr/local/bin/start.sh \
+    && echo 'if [ -z "$APP_KEY" ] || [ "$APP_KEY" = "" ] || [ "$APP_KEY" = "\"\"" ]; then' >> /usr/local/bin/start.sh \
+    && echo '    # Unset the empty APP_KEY so Laravel reads from .env instead' >> /usr/local/bin/start.sh \
+    && echo '    unset APP_KEY' >> /usr/local/bin/start.sh \
+    && echo '    # Check if .env has a valid APP_KEY' >> /usr/local/bin/start.sh \
+    && echo '    if ! grep -q "APP_KEY=base64:" .env 2>/dev/null; then' >> /usr/local/bin/start.sh \
+    && echo '        echo "Generating new APP_KEY..."' >> /usr/local/bin/start.sh \
+    && echo '        php artisan key:generate --force || true' >> /usr/local/bin/start.sh \
+    && echo '    fi' >> /usr/local/bin/start.sh \
+    && echo 'fi' >> /usr/local/bin/start.sh \
+    && echo '' >> /usr/local/bin/start.sh \
+    && echo '# Dont cache config in production if APP_DEBUG is true (for debugging)' >> /usr/local/bin/start.sh \
+    && echo 'if [ "$APP_DEBUG" != "true" ]; then' >> /usr/local/bin/start.sh \
+    && echo '    php artisan config:cache || true' >> /usr/local/bin/start.sh \
+    && echo '    php artisan route:cache || true' >> /usr/local/bin/start.sh \
+    && echo '    php artisan view:cache || true' >> /usr/local/bin/start.sh \
+    && echo 'else' >> /usr/local/bin/start.sh \
+    && echo '    # In debug mode, dont cache routes to see errors better' >> /usr/local/bin/start.sh \
+    && echo '    php artisan route:clear || true' >> /usr/local/bin/start.sh \
+    && echo 'fi' >> /usr/local/bin/start.sh \
+    && echo '' >> /usr/local/bin/start.sh \
+    && echo '# Create storage symlink' >> /usr/local/bin/start.sh \
+    && echo 'php artisan storage:link || true' >> /usr/local/bin/start.sh \
+    && echo '' >> /usr/local/bin/start.sh \
+    && echo '# Run migrations (MySQL/PostgreSQL connection details from Railway environment variables)' >> /usr/local/bin/start.sh \
+    && echo 'php artisan migrate --force || true' >> /usr/local/bin/start.sh \
+    && echo '' >> /usr/local/bin/start.sh \
+    && echo '# Run database seeders' >> /usr/local/bin/start.sh \
+    && echo 'php artisan db:seed --force || true' >> /usr/local/bin/start.sh \
+    && echo '' >> /usr/local/bin/start.sh \
+    && echo '# Ensure log file is writable and tail it in background' >> /usr/local/bin/start.sh \
+    && echo 'touch storage/logs/laravel.log' >> /usr/local/bin/start.sh \
+    && echo 'chmod 664 storage/logs/laravel.log' >> /usr/local/bin/start.sh \
+    && echo 'chown www-data:www-data storage/logs/laravel.log' >> /usr/local/bin/start.sh \
+    && echo 'tail -f storage/logs/laravel.log > /proc/1/fd/1 2>&1 &' >> /usr/local/bin/start.sh \
+    && echo '' >> /usr/local/bin/start.sh \
+    && echo '# Start supervisor' >> /usr/local/bin/start.sh \
+    && echo 'exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf' >> /usr/local/bin/start.sh \
+    && chmod +x /usr/local/bin/start.sh
 
 # Create supervisor config to run both Nginx and PHP-FPM
 RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf \
     && echo 'nodaemon=true' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'user=root' >> /etc/supervisor/conf.d/supervisord.conf \
     && echo '' >> /etc/supervisor/conf.d/supervisord.conf \
     && echo '[program:php-fpm]' >> /etc/supervisor/conf.d/supervisord.conf \
     && echo 'command=php-fpm -F' >> /etc/supervisor/conf.d/supervisord.conf \
     && echo 'autostart=true' >> /etc/supervisor/conf.d/supervisord.conf \
     && echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'stdout_logfile=/dev/stdout' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'stdout_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'stderr_logfile=/dev/stderr' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'stderr_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf \
     && echo '' >> /etc/supervisor/conf.d/supervisord.conf \
     && echo '[program:nginx]' >> /etc/supervisor/conf.d/supervisord.conf \
     && echo 'command=nginx -g "daemon off;"' >> /etc/supervisor/conf.d/supervisord.conf \
     && echo 'autostart=true' >> /etc/supervisor/conf.d/supervisord.conf \
-    && echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf
+    && echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'stdout_logfile=/dev/stdout' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'stdout_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'stderr_logfile=/dev/stderr' >> /etc/supervisor/conf.d/supervisord.conf \
+    && echo 'stderr_logfile_maxbytes=0' >> /etc/supervisor/conf.d/supervisord.conf
 
-# Expose port 80
-EXPOSE 80
+# Expose ports
+EXPOSE 80 9000
 
-# Start supervisor
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Start supervisor via startup script
+CMD ["/usr/local/bin/start.sh"]

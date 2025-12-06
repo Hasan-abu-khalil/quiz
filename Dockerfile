@@ -13,8 +13,7 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     libzip-dev \
-    nginx \
-    supervisor \
+    gosu \
     ca-certificates \
     gnupg \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -37,61 +36,19 @@ RUN pecl install redis && docker-php-ext-enable redis
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy application files
-COPY . .
+# Create entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+# Create necessary directories
+RUN mkdir -p /var/www/html/vendor /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Install Node dependencies and build assets
-RUN npm ci && npm run build
+# Expose port 9000 for PHP-FPM (though nginx connects via network in docker-compose)
+EXPOSE 9000
 
-# Configure PHP-FPM to listen on socket
-RUN sed -i 's/listen = .*/listen = \/var\/run\/php\/php8.2-fpm.sock/' /usr/local/etc/php-fpm.d/www.conf \
-    && sed -i 's/;listen.owner = www-data/listen.owner = www-data/' /usr/local/etc/php-fpm.d/www.conf \
-    && sed -i 's/;listen.group = www-data/listen.group = www-data/' /usr/local/etc/php-fpm.d/www.conf
+# Expose port 5173 for Vite dev server
+EXPOSE 5173
 
-# Create Nginx configuration for production
-RUN echo 'server {' > /etc/nginx/sites-available/default \
-    && echo '    listen 80;' >> /etc/nginx/sites-available/default \
-    && echo '    server_name _;' >> /etc/nginx/sites-available/default \
-    && echo '    root /var/www/html/public;' >> /etc/nginx/sites-available/default \
-    && echo '    index index.php index.html;' >> /etc/nginx/sites-available/default \
-    && echo '' >> /etc/nginx/sites-available/default \
-    && echo '    location / {' >> /etc/nginx/sites-available/default \
-    && echo '        try_files $uri $uri/ /index.php?$query_string;' >> /etc/nginx/sites-available/default \
-    && echo '    }' >> /etc/nginx/sites-available/default \
-    && echo '' >> /etc/nginx/sites-available/default \
-    && echo '    location ~ \.php$ {' >> /etc/nginx/sites-available/default \
-    && echo '        fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;' >> /etc/nginx/sites-available/default \
-    && echo '        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;' >> /etc/nginx/sites-available/default \
-    && echo '        include fastcgi_params;' >> /etc/nginx/sites-available/default \
-    && echo '        fastcgi_hide_header X-Powered-By;' >> /etc/nginx/sites-available/default \
-    && echo '    }' >> /etc/nginx/sites-available/default \
-    && echo '' >> /etc/nginx/sites-available/default \
-    && echo '    client_max_body_size 20M;' >> /etc/nginx/sites-available/default \
-    && echo '}' >> /etc/nginx/sites-available/default
-
-# Set permissions
-RUN chmod -R 775 storage bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache /var/www/html
-
-# Create supervisor config to run both Nginx and PHP-FPM
-RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf \
-    && echo 'nodaemon=true' >> /etc/supervisor/conf.d/supervisord.conf \
-    && echo '' >> /etc/supervisor/conf.d/supervisord.conf \
-    && echo '[program:php-fpm]' >> /etc/supervisor/conf.d/supervisord.conf \
-    && echo 'command=php-fpm -F' >> /etc/supervisor/conf.d/supervisord.conf \
-    && echo 'autostart=true' >> /etc/supervisor/conf.d/supervisord.conf \
-    && echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf \
-    && echo '' >> /etc/supervisor/conf.d/supervisord.conf \
-    && echo '[program:nginx]' >> /etc/supervisor/conf.d/supervisord.conf \
-    && echo 'command=nginx -g "daemon off;"' >> /etc/supervisor/conf.d/supervisord.conf \
-    && echo 'autostart=true' >> /etc/supervisor/conf.d/supervisord.conf \
-    && echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf
-
-# Expose port 80
-EXPOSE 80
-
-# Start supervisor
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Use entrypoint script
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["php-fpm"]

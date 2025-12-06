@@ -62,16 +62,27 @@ class AuthController extends Controller
 
             $user = Auth::user();
 
+            // Check if this is an Inertia request
+            $isInertiaRequest = $this->wantsInertiaResponse($request);
+
             if ($user->hasRole('admin')) {
+                // Admin dashboard is Inertia, so regular redirect works
                 return redirect()->route('admin.dashboard');
             }
 
             if ($user->hasRole('teacher')) {
+                // Teacher dashboard is Inertia, so regular redirect works
                 return redirect()->route('admin.dashboard');
             }
 
             // default: student or others
             if ($user->hasRole('student')) {
+                // Student dashboard is Blade, so use Inertia::location() for full page navigation
+                // This prevents Inertia from trying to render Blade view in iframe
+                if ($isInertiaRequest) {
+                    return \Inertia\Inertia::location(route('student.dashboard'));
+                }
+
                 return redirect()->route('student.dashboard');
             }
 

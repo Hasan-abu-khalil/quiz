@@ -161,13 +161,15 @@ export function EditQuizDialog({
                             <InputError message={form.errors.mode} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="subject_id">Subject (Optional)</Label>
+                            <Label htmlFor="subject_id">
+                                Subject (Optional)
+                            </Label>
                             <Select
-                                value={form.data.subject_id || ""}
+                                value={form.data.subject_id || "none"}
                                 onValueChange={(value) =>
                                     form.setData(
                                         "subject_id",
-                                        value === "" ? "" : value
+                                        value === "none" ? "" : value
                                     )
                                 }
                             >
@@ -175,7 +177,7 @@ export function EditQuizDialog({
                                     <SelectValue placeholder="Select subject" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">None</SelectItem>
+                                    <SelectItem value="none">None</SelectItem>
                                     {subjects.map((subject) => (
                                         <SelectItem
                                             key={subject.id}
@@ -244,4 +246,3 @@ export function EditQuizDialog({
         </Dialog>
     );
 }
-

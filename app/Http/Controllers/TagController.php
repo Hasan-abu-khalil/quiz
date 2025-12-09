@@ -10,10 +10,22 @@ class TagController extends Controller
 {
     public function index(Request $request)
     {
-        // For Inertia requests, return Inertia response
+        $query = Tag::query();
+
+        
+        if ($request->has('search') && !empty($request->search)) {
+            $search = $request->search;
+            $query->where('tag_text', 'like', "%{$search}%");
+        }
+
+        
+        $tags = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
+
+        // For Inertia response
         if ($this->wantsInertiaResponse($request)) {
             return \Inertia\Inertia::render('admin/Tags/Index', [
-                'tags' => Tag::all(),
+                'tags' => $tags,
+                'filters' => $request->only(['search']),
             ]);
         }
 
@@ -26,13 +38,13 @@ class TagController extends Controller
                 ->addColumn('action', function ($row) {
                     return '
                     <div class="d-grid gap-2 d-md-block">
-                    <a href="javascript:void(0)" class="btn btn-info view" data-id="'.$row->id.'" data-toggle="tooltip" title="View">View</a>
+                    <a href="javascript:void(0)" class="btn btn-info view" data-id="' . $row->id . '" data-toggle="tooltip" title="View">View</a>
 
-                     <a href="javascript:void(0)" class="edit-Tag btn btn-primary btn-action" data-id="'.$row->id.'" data-toggle="tooltip" title="Edit">
+                     <a href="javascript:void(0)" class="edit-Tag btn btn-primary btn-action" data-id="' . $row->id . '" data-toggle="tooltip" title="Edit">
                       <i class="fas fa-pencil-alt"></i>
                      </a>
 
-                    <a href="javascript:void(0)" class="delete-Tag btn btn-danger" data-id="'.$row->id.'" data-toggle="tooltip" title="Delete">
+                    <a href="javascript:void(0)" class="delete-Tag btn btn-danger" data-id="' . $row->id . '" data-toggle="tooltip" title="Delete">
                       <i class="fas fa-trash"></i>
                       </a>
                      </div>';
@@ -84,7 +96,7 @@ class TagController extends Controller
     {
         $tag = Tag::with('questions')->find($id);
 
-        if (! $tag) {
+        if (!$tag) {
             abort(404, 'Tag not found');
         }
 
@@ -119,7 +131,7 @@ class TagController extends Controller
     {
         $tag = Tag::find($id);
 
-        if (! $tag) {
+        if (!$tag) {
             abort(404, 'Tag not found');
         }
 
@@ -145,7 +157,7 @@ class TagController extends Controller
     {
         $tag = Tag::find($id);
 
-        if (! $tag) {
+        if (!$tag) {
             abort(404, 'Tag not found');
         }
 

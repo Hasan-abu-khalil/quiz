@@ -10,7 +10,7 @@
         </div>
     </div>
 
-   
+
 
     <div class="card card-shadow">
         <div class="card-body p-0">
@@ -55,6 +55,50 @@
                         @endforelse
                     </tbody>
                 </table>
+                {{-- Pagination --}}
+                <div class="p-3">
+                    @if ($attempts->lastPage() > 1)
+                        <nav>
+                            <ul class="pagination justify-content-center">
+
+                                {{-- First Page --}}
+                                <li class="page-item {{ $attempts->currentPage() == 1 ? 'disabled' : '' }}">
+                                    <a class="page-link" href="{{ $attempts->url(1) }}">1</a>
+                                </li>
+
+                                {{-- Left Ellipsis --}}
+                                @if ($attempts->currentPage() > 4)
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                @endif
+
+                                {{-- Sliding Range --}}
+                                @php
+                                    $start = max(2, $attempts->currentPage() - 2);
+                                    $end = min($attempts->lastPage() - 1, $attempts->currentPage() + 2);
+                                @endphp
+
+                                @for ($i = $start; $i <= $end; $i++)
+                                    <li class="page-item {{ $attempts->currentPage() == $i ? 'active' : '' }}">
+                                        <a class="page-link" href="{{ $attempts->url($i) }}">{{ $i }}</a>
+                                    </li>
+                                @endfor
+
+                                {{-- Right Ellipsis --}}
+                                @if ($attempts->currentPage() < $attempts->lastPage() - 3)
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                @endif
+
+                                {{-- Last Page --}}
+                                <li class="page-item {{ $attempts->currentPage() == $attempts->lastPage() ? 'disabled' : '' }}">
+                                    <a class="page-link" href="{{ $attempts->url($attempts->lastPage()) }}">
+                                        {{ $attempts->lastPage() }}
+                                    </a>
+                                </li>
+
+                            </ul>
+                        </nav>
+                    @endif
+                </div>
             </div>
         </div>
     </div>

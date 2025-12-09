@@ -12,40 +12,42 @@ class QuizAttemptController extends Controller
 {
     public function index(Request $request)
     {
-        // For Inertia requests, return Inertia response
-        if ($this->wantsInertiaResponse($request)) {
-            $attempts = QuizAttempt::with(['quiz', 'student'])
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($attempt) {
-                    $totalQuestions = $attempt->quiz?->questions()->count() ?? 0;
+        // Start the query
+        $query = QuizAttempt::with(['quiz', 'student'])->orderBy('created_at', 'desc');
 
-                    return [
-                        'id' => $attempt->id,
-                        'quiz_id' => $attempt->quiz_id,
-                        'student_id' => $attempt->student_id,
-                        'started_at' => $attempt->started_at,
-                        'ended_at' => $attempt->ended_at,
-                        'score' => $attempt->score,
-                        'total_correct' => $attempt->total_correct,
-                        'total_incorrect' => $attempt->total_incorrect,
-                        'total_questions' => $totalQuestions,
-                        'quiz' => $attempt->quiz ? [
-                            'id' => $attempt->quiz->id,
-                            'title' => $attempt->quiz->title,
-                        ] : null,
-                        'student' => $attempt->student ? [
-                            'id' => $attempt->student->id,
-                            'name' => $attempt->student->name,
-                            'email' => $attempt->student->email,
-                        ] : null,
-                    ];
-                });
-
-            return \Inertia\Inertia::render('admin/Attempts/Index', [
-                'attempts' => $attempts,
-            ]);
+        // Apply search if provided
+        if ($request->has('search') && $request->search != '') {
+            $search = $request->search;
+            $query->whereHas('quiz', fn($q) => $q->where('title', 'like', "%{$search}%"))
+                ->orWhereHas('student', fn($q) => $q->where('name', 'like', "%{$search}%"));
         }
+
+        // Paginate and map
+        $attempts = $query->paginate(10)->withQueryString()->through(fn($attempt) => [
+            'id' => $attempt->id,
+            'quiz_id' => $attempt->quiz_id,
+            'student_id' => $attempt->student_id,
+            'started_at' => $attempt->started_at,
+            'ended_at' => $attempt->ended_at,
+            'score' => $attempt->score,
+            'total_correct' => $attempt->total_correct,
+            'total_incorrect' => $attempt->total_incorrect,
+            'total_questions' => $attempt->quiz?->questions()->count() ?? 0,
+            'quiz' => $attempt->quiz ? [
+                'id' => $attempt->quiz->id,
+                'title' => $attempt->quiz->title,
+            ] : null,
+            'student' => $attempt->student ? [
+                'id' => $attempt->student->id,
+                'name' => $attempt->student->name,
+                'email' => $attempt->student->email,
+            ] : null,
+        ]);
+
+        return \Inertia\Inertia::render('admin/Attempts/Index', [
+            'attempts' => $attempts,
+            'filters' => $request->only(['search']),
+        ]);
 
         // Check if this is an AJAX request (DataTables) - but NOT Inertia
         if ($this->isDataTablesRequest($request)) {
@@ -53,23 +55,23 @@ class QuizAttemptController extends Controller
 
             return DataTables::of($data)
                 ->addIndexColumn()
-                ->addColumn('quiz_title', fn ($row) => $row->quiz ? $row->quiz->title : '')
-                ->addColumn('student_name', fn ($row) => $row->student ? $row->student->name : '')
+                ->addColumn('quiz_title', fn($row) => $row->quiz ? $row->quiz->title : '')
+                ->addColumn('student_name', fn($row) => $row->student ? $row->student->name : '')
                 ->addColumn('score', function ($row) {
                     $totalQuestions = $row->quiz?->questions->count() ?? 0;
 
-                    return $row->score.' / '.$totalQuestions;
+                    return $row->score . ' / ' . $totalQuestions;
                 })
                 ->addColumn('action', function ($row) {
                     return '
                          <div class="d-grid gap-2 d-md-block">
-                    <a href="javascript:void(0)" class="btn btn-info  view" data-id="'.$row->id.'" data-toggle="tooltip" title="View">View</a>
+                    <a href="javascript:void(0)" class="btn btn-info  view" data-id="' . $row->id . '" data-toggle="tooltip" title="View">View</a>
 
-                     <a href="javascript:void(0)" class="edit-attempt btn btn-primary btn-action " data-id="'.$row->id.'" data-toggle="tooltip" title="Edit">
+                     <a href="javascript:void(0)" class="edit-attempt btn btn-primary btn-action " data-id="' . $row->id . '" data-toggle="tooltip" title="Edit">
                       <i class="fas fa-pencil-alt"></i>
                      </a>
 
-                    <a href="javascript:void(0)" class="delete-attempt btn btn-danger  " data-id="'.$row->id.'" data-toggle="tooltip" title="Delete">
+                    <a href="javascript:void(0)" class="delete-attempt btn btn-danger  " data-id="' . $row->id . '" data-toggle="tooltip" title="Delete">
                       <i class="fas fa-trash"></i>
                       </a>
                      </div>
@@ -110,7 +112,7 @@ class QuizAttemptController extends Controller
             'answers.selectedOption',
         ])->find($id);
 
-        if (! $attempt) {
+        if (!$attempt) {
             abort(404, 'Quiz Attempt not found');
         }
 
@@ -199,7 +201,7 @@ class QuizAttemptController extends Controller
     {
         $attempt = QuizAttempt::find($id);
 
-        if (! $attempt) {
+        if (!$attempt) {
             abort(404, 'Quiz Attempt not found');
         }
 

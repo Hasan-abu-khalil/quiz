@@ -1,5 +1,5 @@
-import { Head } from "@inertiajs/react";
-import { useState } from "react";
+import { Head, router } from "@inertiajs/react";
+import { useState, useEffect } from "react";
 import AdminLayout from "@/layouts/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,10 +24,40 @@ interface User {
 }
 
 interface Props {
-    users: User[];
+    users: {
+        data: User[];
+        current_page: number;
+        last_page: number;
+        prev_page_url: string | null;
+        next_page_url: string | null;
+    };
 }
 
-export default function Index({ users }: Props) {
+export default function Index({ users, filters }: any) {
+    const [search, setSearch] = useState(filters.search || "");
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        if (!isMounted) {
+            setIsMounted(true);
+            return;
+        }
+
+        const timeout = setTimeout(() => {
+            router.get(
+                "/admin/users",
+                { search },
+                { preserveState: true, replace: true }
+            );
+        }, 500);
+
+        return () => clearTimeout(timeout);
+    }, [search]);
+
+    const goToPage = (url: string | null) => {
+        if (url) router.get(url);
+    };
+
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -67,6 +97,17 @@ export default function Index({ users }: Props) {
                         </div>
                     </CardHeader>
                     <CardContent>
+                        {/* Search */}
+                        <div className="mb-4 flex w-[220px] gap-2">
+                            <input
+                                type="text"
+                                placeholder="Search subjects..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="border px-2 py-1 rounded w-full mb-4"
+                            />
+                        </div>
+
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -80,7 +121,7 @@ export default function Index({ users }: Props) {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {users.length === 0 ? (
+                                {users.data.length === 0 ? (
                                     <TableRow>
                                         <TableCell
                                             colSpan={5}
@@ -90,7 +131,7 @@ export default function Index({ users }: Props) {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    users.map((user) => (
+                                    users.data.map((user) => (
                                         <TableRow key={user.id}>
                                             <TableCell>{user.id}</TableCell>
                                             <TableCell>{user.name}</TableCell>
@@ -135,6 +176,102 @@ export default function Index({ users }: Props) {
                                 )}
                             </TableBody>
                         </Table>
+                        {/* Pagination */}
+                        <div className="flex justify-center mt-6">
+                            <div className="flex items-center space-x-1">
+                                {/* Prev */}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!users.prev_page_url}
+                                    onClick={() =>
+                                        goToPage(users.prev_page_url)
+                                    }
+                                >
+                                    Prev
+                                </Button>
+
+                                {/* Page Numbers */}
+                                {(() => {
+                                    const pages = [];
+                                    const total = users.last_page;
+                                    const current = users.current_page;
+                                    const maxVisible = 5;
+
+                                    // Always show page 1
+                                    pages.push(1);
+
+                                    // Sliding window range
+                                    let start = Math.max(2, current - 2);
+                                    let end = Math.min(total - 1, current + 2);
+
+                                    if (current <= 3) {
+                                        end = Math.min(6, total - 1);
+                                    }
+
+                                    if (current >= total - 2) {
+                                        start = Math.max(2, total - 5);
+                                    }
+
+                                    // Ellipsis after page 1
+                                    if (start > 2) {
+                                        pages.push("...");
+                                    }
+
+                                    // Middle pages
+                                    for (let i = start; i <= end; i++) {
+                                        pages.push(i);
+                                    }
+
+                                    // Ellipsis before last page
+                                    if (end < total - 1) {
+                                        pages.push("...");
+                                    }
+
+                                    // Always show last page (if > 1)
+                                    if (total > 1) {
+                                        pages.push(total);
+                                    }
+
+                                    return pages.map((page, index) =>
+                                        page === "..." ? (
+                                            <span key={index} className="px-2">
+                                                ...
+                                            </span>
+                                        ) : (
+                                            <button
+                                                key={page}
+                                                onClick={() =>
+                                                    goToPage(
+                                                        `/admin/users?page=${page}`
+                                                    )
+                                                }
+                                                className={`px-3 py-1 rounded border text-sm ${
+                                                    users.current_page ===
+                                                    page
+                                                        ? "bg-blue-600 text-white"
+                                                        : "hover:bg-gray-100"
+                                                }`}
+                                            >
+                                                {page}
+                                            </button>
+                                        )
+                                    );
+                                })()}
+
+                                {/* Next */}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!users.next_page_url}
+                                    onClick={() =>
+                                        goToPage(users.next_page_url)
+                                    }
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
 

@@ -149,8 +149,8 @@ Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
 // -------------------- Student Area --------------------
 Route::middleware(['auth'])->group(function () {
 
-    Route::get('/', [DashboardController::class, 'index'])
-        ->name('student.dashboard');
+    Route::get('/', [DashboardController::class, 'index'])->name('student.dashboard');
+    Route::get('dashboard/subjects/{id}/quizzes', [DashboardController::class, 'quizzesBySubject'])->name('student.subject.quizzes');
 
     // Show quiz info + "Start quiz" button
     Route::get('/student/quizzes/{quiz}', [StudentQuizController::class, 'show'])

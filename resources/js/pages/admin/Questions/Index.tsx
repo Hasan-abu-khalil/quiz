@@ -1,5 +1,5 @@
-import { Head } from "@inertiajs/react";
-import { useState } from "react";
+import { Head, router } from "@inertiajs/react";
+import { useState, useEffect } from "react";
 import AdminLayout from "@/layouts/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,12 +43,38 @@ interface Question {
 }
 
 interface Props {
-    questions: Question[];
+    questions: {
+        data: Question[];
+        current_page: number;
+        last_page: number;
+        prev_page_url: string | null;
+        next_page_url: string | null;
+    };
     subjects: Subject[];
     tags: Tag[];
 }
 
-export default function Index({ questions, subjects, tags }: Props) {
+export default function Index({ questions, subjects, tags, filters }: any) {
+    const [search, setSearch] = useState(filters.search || "");
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        if (!isMounted) {
+            setIsMounted(true);
+            return;
+        }
+
+        const timeout = setTimeout(() => {
+            router.get(
+                "/admin/questions",
+                { search },
+                { preserveState: true, replace: true }
+            );
+        }, 500);
+
+        return () => clearTimeout(timeout);
+    }, [search]);
+
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -72,6 +98,10 @@ export default function Index({ questions, subjects, tags }: Props) {
         setDeleteDialogOpen(true);
     };
 
+    const goToPage = (url: string | null) => {
+        if (url) router.get(url);
+    };
+
     return (
         <AdminLayout
             breadcrumbs={[
@@ -92,6 +122,16 @@ export default function Index({ questions, subjects, tags }: Props) {
                         </div>
                     </CardHeader>
                     <CardContent>
+                        {/* Search */}
+                        <div className="mb-4 flex w-[220px] gap-2">
+                            <input
+                                type="text"
+                                placeholder="Search subjects..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="border px-2 py-1 rounded w-full mb-4"
+                            />
+                        </div>
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -104,7 +144,7 @@ export default function Index({ questions, subjects, tags }: Props) {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {questions.length === 0 ? (
+                                {questions.data.length === 0 ? (
                                     <TableRow>
                                         <TableCell
                                             colSpan={4}
@@ -114,7 +154,7 @@ export default function Index({ questions, subjects, tags }: Props) {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    questions.map((question) => (
+                                    questions.data.map((question) => (
                                         <TableRow key={question.id}>
                                             <TableCell>{question.id}</TableCell>
                                             <TableCell>
@@ -186,6 +226,103 @@ export default function Index({ questions, subjects, tags }: Props) {
                                 )}
                             </TableBody>
                         </Table>
+
+                        {/* Pagination */}
+                        <div className="flex justify-center mt-6">
+                            <div className="flex items-center space-x-1">
+                                {/* Prev */}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!questions.prev_page_url}
+                                    onClick={() =>
+                                        goToPage(questions.prev_page_url)
+                                    }
+                                >
+                                    Prev
+                                </Button>
+
+                                {/* Page Numbers */}
+                                {(() => {
+                                    const pages = [];
+                                    const total = questions.last_page;
+                                    const current = questions.current_page;
+                                    const maxVisible = 5;
+
+                                    // Always show page 1
+                                    pages.push(1);
+
+                                    // Sliding window range
+                                    let start = Math.max(2, current - 2);
+                                    let end = Math.min(total - 1, current + 2);
+
+                                    if (current <= 3) {
+                                        end = Math.min(6, total - 1);
+                                    }
+
+                                    if (current >= total - 2) {
+                                        start = Math.max(2, total - 5);
+                                    }
+
+                                    // Ellipsis after page 1
+                                    if (start > 2) {
+                                        pages.push("...");
+                                    }
+
+                                    // Middle pages
+                                    for (let i = start; i <= end; i++) {
+                                        pages.push(i);
+                                    }
+
+                                    // Ellipsis before last page
+                                    if (end < total - 1) {
+                                        pages.push("...");
+                                    }
+
+                                    // Always show last page (if > 1)
+                                    if (total > 1) {
+                                        pages.push(total);
+                                    }
+
+                                    return pages.map((page, index) =>
+                                        page === "..." ? (
+                                            <span key={index} className="px-2">
+                                                ...
+                                            </span>
+                                        ) : (
+                                            <button
+                                                key={page}
+                                                onClick={() =>
+                                                    goToPage(
+                                                        `/admin/questions?page=${page}`
+                                                    )
+                                                }
+                                                className={`px-3 py-1 rounded border text-sm ${
+                                                    questions.current_page ===
+                                                    page
+                                                        ? "bg-blue-600 text-white"
+                                                        : "hover:bg-gray-100"
+                                                }`}
+                                            >
+                                                {page}
+                                            </button>
+                                        )
+                                    );
+                                })()}
+
+                                {/* Next */}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!questions.next_page_url}
+                                    onClick={() =>
+                                        goToPage(questions.next_page_url)
+                                    }
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
 

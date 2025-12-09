@@ -13,6 +13,7 @@ import {
     FileQuestion,
     ClipboardList,
     Tag,
+    Book,
 } from "lucide-react";
 import AppLogo from "./app-logo";
 
@@ -30,6 +31,12 @@ const mainNavItems = [
                 href: "/admin/users",
                 icon: Users,
                 role: ["admin"],
+            },
+            {
+                title: "Subjects",
+                href: "/admin/subjects",
+                icon: Book,
+                role: ["admin", "teacher"],
             },
             {
                 title: "Quizzes",

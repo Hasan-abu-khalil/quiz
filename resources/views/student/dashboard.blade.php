@@ -6,58 +6,72 @@
     <div class="row mb-4">
         <div class="col">
             <h3 class="mb-1">Welcome, {{ auth()->user()->name }}</h3>
-            <p class="text-muted mb-0">Choose a quiz to start.</p>
+            <p class="text-muted mb-0">Choose a subject to see quizzes.</p>
         </div>
     </div>
 
-
-
     <div class="row">
-        @forelse ($quizzes as $quiz)
+        @forelse ($subjects as $subject)
             <div class="col-md-4 mb-3">
                 <div class="card card-shadow h-100">
                     <div class="card-body d-flex flex-column">
-                        <h5 class="card-title">{{ $quiz->title }}</h5>
-                        <p class="card-text text-muted mb-1">
-                            Mode: <strong>{{ ucfirst(str_replace('_', ' ', $quiz->mode)) }}</strong>
-                        </p>
-                        @if($quiz->subject)
-                            <p class="card-text text-muted mb-1">
-                                Subject: <strong>{{ $quiz->subject->name }}</strong>
-                            </p>
-                        @endif
-                        @if($quiz->time_limit_minutes)
-                            <p class="card-text text-muted mb-2">
-                                Time limit: {{ $quiz->time_limit_minutes }} min
-                            </p>
-                        @endif
-
+                        <h5 class="card-title">{{ $subject->name }}</h5>
                         <div class="mt-auto">
-                            <a href="{{ route('student.quizzes.show', $quiz->id) }}" class="btn btn-primary w-100">
-                                View & Start
+                            <a href="{{ route('student.subject.quizzes', $subject->id) }}" class="btn btn-primary w-100">
+                                View Quizzes
                             </a>
                         </div>
                     </div>
                 </div>
             </div>
         @empty
-            <p>No quizzes available yet.</p>
+            <p class="text-muted">No subjects available yet.</p>
         @endforelse
-
-    </div>
-    {{-- Pagination links --}}
-    <div class="d-flex justify-content-center">
-        {{ $quizzes->links('pagination::bootstrap-5 ') }}
     </div>
 
+
+    {{-- Pagination --}}
+    <div class="p-3">
+        @if ($subjects->lastPage() > 1)
+            <nav>
+                <ul class="pagination justify-content-center">
+                    <li class="page-item {{ $subjects->currentPage() == 1 ? 'disabled' : '' }}">
+                        <a class="page-link" href="{{ $subjects->url(1) }}">1</a>
+                    </li>
+
+                    @php
+                        $start = max(2, $subjects->currentPage() - 2);
+                        $end = min($subjects->lastPage() - 1, $subjects->currentPage() + 2);
+                    @endphp
+
+                    @for ($i = $start; $i <= $end; $i++)
+                        <li class="page-item {{ $subjects->currentPage() == $i ? 'active' : '' }}">
+                            <a class="page-link" href="{{ $subjects->url($i) }}">{{ $i }}</a>
+                        </li>
+                    @endfor
+
+                    <li class="page-item {{ $subjects->currentPage() == $subjects->lastPage() ? 'disabled' : '' }}">
+                        <a class="page-link" href="{{ $subjects->url($subjects->lastPage()) }}">
+                            {{ $subjects->lastPage() }}
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        @endif
+    </div>
+
+
+
+    
     <hr class="my-4">
 
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4>Your Attempts</h4>
+        <h4>Your Recent Attempts</h4>
         <a href="{{ route('student.attempts.index') }}" class="btn btn-outline-secondary btn-sm">
             View all attempts
         </a>
     </div>
+
     <div class="row mb-4">
         @forelse ($lastAttempts as $attempt)
             <div class="col-md-4 mb-3">
@@ -74,14 +88,12 @@
                             <a href="{{ route('student.attempts.show', $attempt->id) }}" class="btn btn-primary btn-sm w-100">
                                 View Attempt
                             </a>
-
                             @if(!$attempt->ended_at)
                                 <a href="{{ route('student.attempts.resume', $attempt->id) }}"
                                     class="btn btn-warning btn-sm mt-1 w-100">
                                     Resume Quiz
                                 </a>
                             @endif
-
                         </div>
                     </div>
                 </div>
@@ -90,5 +102,4 @@
             <p class="text-muted">You have no recent attempts.</p>
         @endforelse
     </div>
-
 @endsection

@@ -13,7 +13,7 @@ class AttemptController extends Controller
         $attempts = QuizAttempt::with('quiz')
             ->where('student_id', Auth::id())
             ->orderByDesc('created_at')
-            ->get();
+            ->paginate(10); 
 
         return view('student.attempts-index', compact('attempts'));
     }
@@ -25,8 +25,9 @@ class AttemptController extends Controller
         }
 
         $attempt->load(['quiz', 'answers.question.options']);
+        $answers = $attempt->answers()->paginate(5); 
 
-        return view('student.attempts-show', compact('attempt'));
+        return view('student.attempts-show', compact('attempt', 'answers'));
     }
 
     public function resume(QuizAttempt $attempt)
@@ -41,7 +42,7 @@ class AttemptController extends Controller
 
         // Find the next unanswered question
         $nextIndex = $questions->search(function ($question) use ($attempt) {
-            return ! $attempt->answers->contains('question_id', $question->id);
+            return !$attempt->answers->contains('question_id', $question->id);
         });
 
         // If all questions are answered, mark as finished

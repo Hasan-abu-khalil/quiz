@@ -16,15 +16,23 @@ class QuizController extends Controller
         $query = Quiz::with('subject');
 
         // Teachers can only see their own quizzes
-        if ($user && $user->hasRole('teacher') && ! $user->hasRole('admin')) {
+        if ($user && $user->hasRole('teacher') && !$user->hasRole('admin')) {
             $query->where('created_by', $user->id);
         }
+
+
+        if ($request->has('search') && !empty($request->search)) {
+            $search = $request->search;
+            $query->where('title', 'like', "%{$search}%");
+        }
+        $quizzes = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
 
         // For Inertia requests, return Inertia response
         if ($this->wantsInertiaResponse($request)) {
             return \Inertia\Inertia::render('admin/Quizzes/Index', [
-                'quizzes' => $query->get(),
+                'quizzes' => $quizzes,
                 'subjects' => Subject::select('id', 'name')->get(),
+                'filters' => $request->only(['search']),
             ]);
         }
 
@@ -49,13 +57,13 @@ class QuizController extends Controller
                 ->addColumn('action', function ($row) {
                     return '
                     <div class="d-grid gap-2 d-md-block">
-                        <a href="javascript:void(0)" class="btn btn-info view" data-id="'.$row->id.'" title="View">View</a>
+                        <a href="javascript:void(0)" class="btn btn-info view" data-id="' . $row->id . '" title="View">View</a>
 
-                        <a href="javascript:void(0)" class="btn btn-primary edit-quiz" data-id="'.$row->id.'" title="Edit">
+                        <a href="javascript:void(0)" class="btn btn-primary edit-quiz" data-id="' . $row->id . '" title="Edit">
                             <i class="fas fa-pencil-alt"></i>
                         </a>
 
-                        <a href="javascript:void(0)" class="btn btn-danger delete-quiz" data-id="'.$row->id.'" title="Delete">
+                        <a href="javascript:void(0)" class="btn btn-danger delete-quiz" data-id="' . $row->id . '" title="Delete">
                             <i class="fas fa-trash"></i>
                         </a>
                     </div>';
@@ -104,7 +112,7 @@ class QuizController extends Controller
     {
         $quiz = Quiz::with(['subject'])->find($id);
 
-        if (! $quiz) {
+        if (!$quiz) {
             abort(404, 'Quiz not found');
         }
 
@@ -136,7 +144,7 @@ class QuizController extends Controller
     {
         $quiz = Quiz::find($id);
 
-        if (! $quiz) {
+        if (!$quiz) {
             return response()->json(['error' => 'Quiz not found'], 404);
         }
 
@@ -147,7 +155,7 @@ class QuizController extends Controller
     {
         $quiz = Quiz::find($id);
 
-        if (! $quiz) {
+        if (!$quiz) {
             abort(404, 'Quiz not found');
         }
 
@@ -181,7 +189,7 @@ class QuizController extends Controller
     {
         $quiz = Quiz::find($id);
 
-        if (! $quiz) {
+        if (!$quiz) {
             abort(404, 'Quiz not found');
         }
 

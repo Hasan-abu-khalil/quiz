@@ -11,12 +11,28 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        // For Inertia requests, return Inertia response
+        $query = User::with('roles');
+
+        // Apply search filter if exists
+        if ($request->has('search') && !empty($request->search)) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+                    
+            });
+        }
+
+        // For Inertia requests: paginate after filtering
         if ($this->wantsInertiaResponse($request)) {
+            $users = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
+
             return \Inertia\Inertia::render('admin/Users/Index', [
-                'users' => User::with('roles')->get(),
+                'users' => $users,
+                'filters' => $request->only(['search']),
             ]);
         }
+
 
         // Check if this is an AJAX request (DataTables) - but NOT Inertia
         if ($this->isDataTablesRequest($request)) {
@@ -27,9 +43,9 @@ class UserController extends Controller
                 ->addColumn('action', function ($row) {
                     return '
                     <div class="d-grid gap-2 d-md-block">
-                    <a href="javascript:void(0)" class="btn btn-info view" data-id="'.$row->id.'" data-toggle="tooltip" title="View">View</a>
+                    <a href="javascript:void(0)" class="btn btn-info view" data-id="' . $row->id . '" data-toggle="tooltip" title="View">View</a>
 
-                   <a href="javascript:void(0)" class="delete-user btn btn-danger" data-id="'.$row->id.'" data-toggle="tooltip" title="Delete">
+                   <a href="javascript:void(0)" class="delete-user btn btn-danger" data-id="' . $row->id . '" data-toggle="tooltip" title="Delete">
                      <i class="fas fa-trash"></i>
                     </a>
                    </div>';
@@ -74,7 +90,7 @@ class UserController extends Controller
     {
         $user = User::with('roles')->find($id);
 
-        if (! $user) {
+        if (!$user) {
             abort(404, 'User not found');
         }
 
@@ -112,7 +128,7 @@ class UserController extends Controller
     {
         $user = User::with('roles')->find($id);
 
-        if (! $user) {
+        if (!$user) {
             abort(404, 'User not found');
         }
 

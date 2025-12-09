@@ -17,16 +17,28 @@ class QuestionController extends Controller
         $query = Question::with(['subject', 'tags', 'options']);
 
         // Teachers can only see questions they have created
-        if ($user && $user->hasRole('teacher') && ! $user->hasRole('admin')) {
+        if ($user && $user->hasRole('teacher') && !$user->hasRole('admin')) {
             $query->where('created_by', $user->id);
         }
+
+        // Search
+        if ($request->has('search') && !empty($request->search)) {
+            $search = $request->search;
+            $query->where('question_text', 'like', "%{$search}%")
+                ->orWhereHas('subject', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                });
+        }
+        $questions = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
+
 
         // For Inertia requests, return Inertia response
         if ($this->wantsInertiaResponse($request)) {
             return \Inertia\Inertia::render('admin/Questions/Index', [
-                'questions' => $query->get(),
+                'questions' => $questions,
                 'subjects' => Subject::select('id', 'name')->get(),
                 'tags' => \App\Models\Tag::select('id', 'tag_text')->get(),
+                'filters' => $request->only(['search']),
             ]);
         }
 
@@ -41,22 +53,22 @@ class QuestionController extends Controller
                 })
                 ->addColumn('question_text', function ($row) {
                     $text = $row->question_text;
-                    $shortText = strlen($text) > 100 ? substr($text, 0, 100).'...' : $text;
+                    $shortText = strlen($text) > 100 ? substr($text, 0, 100) . '...' : $text;
 
-                    return '<span class="short-text">'.$shortText.'</span>
-                <span class="full-text" style="display:none;">'.$text.'</span>
-                '.(strlen($text) > 100 ? '<a href="javascript:void(0)" class="toggle-text">Show More</a>' : '');
+                    return '<span class="short-text">' . $shortText . '</span>
+                <span class="full-text" style="display:none;">' . $text . '</span>
+                ' . (strlen($text) > 100 ? '<a href="javascript:void(0)" class="toggle-text">Show More</a>' : '');
                 })
                 ->addColumn('action', function ($row) {
                     return '
                     <div class="d-grid gap-2 d-md-block">
-                    <a href="javascript:void(0)" class="btn btn-info view" data-id="'.$row->id.'" data-toggle="tooltip" title="View">View</a>
+                    <a href="javascript:void(0)" class="btn btn-info view" data-id="' . $row->id . '" data-toggle="tooltip" title="View">View</a>
 
-                     <a href="javascript:void(0)" class="edit-question btn btn-primary btn-action" data-id="'.$row->id.'" data-toggle="tooltip" title="Edit">
+                     <a href="javascript:void(0)" class="edit-question btn btn-primary btn-action" data-id="' . $row->id . '" data-toggle="tooltip" title="Edit">
                       <i class="fas fa-pencil-alt"></i>
                      </a>
 
-                    <a href="javascript:void(0)" class="delete-question btn btn-danger" data-id="'.$row->id.'" data-toggle="tooltip" title="Delete">
+                    <a href="javascript:void(0)" class="delete-question btn btn-danger" data-id="' . $row->id . '" data-toggle="tooltip" title="Delete">
                       <i class="fas fa-trash"></i>
                       </a>
                      </div>';
@@ -88,7 +100,7 @@ class QuestionController extends Controller
 
         // Ensure at least one option is marked as correct
         $hasCorrectOption = collect($request->options)->contains('is_correct', true);
-        if (! $hasCorrectOption) {
+        if (!$hasCorrectOption) {
             return back()->withErrors([
                 'options' => 'At least one option must be marked as correct.',
             ])->withInput();
@@ -128,7 +140,7 @@ class QuestionController extends Controller
     {
         $question = Question::with(['subject', 'tags', 'options'])->find($id);
 
-        if (! $question) {
+        if (!$question) {
             abort(404, 'Question not found');
         }
 
@@ -175,7 +187,7 @@ class QuestionController extends Controller
     public function edit($id)
     {
         $question = Question::with(['subject', 'tags', 'options'])->find($id);
-        if (! $question) {
+        if (!$question) {
             abort(404, 'Question not found');
         }
 
@@ -194,7 +206,7 @@ class QuestionController extends Controller
     {
         $question = Question::find($id);
 
-        if (! $question) {
+        if (!$question) {
             abort(404, 'Question not found');
         }
 
@@ -210,7 +222,7 @@ class QuestionController extends Controller
 
         // Ensure at least one option is marked as correct
         $hasCorrectOption = collect($request->options)->contains('is_correct', true);
-        if (! $hasCorrectOption) {
+        if (!$hasCorrectOption) {
             return back()->withErrors([
                 'options' => 'At least one option must be marked as correct.',
             ])->withInput();
@@ -252,7 +264,7 @@ class QuestionController extends Controller
     {
         $question = Question::find($id);
 
-        if (! $question) {
+        if (!$question) {
             abort(404, 'Question not found');
         }
 

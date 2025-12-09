@@ -3,28 +3,31 @@ import { useState, useEffect } from "react";
 import AdminLayout from "@/layouts/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+
 import {
     Table,
-    TableBody,
-    TableCell,
-    TableHead,
     TableHeader,
+    TableBody,
+    TableFooter,
+    TableHead,
     TableRow,
+    TableCell,
 } from "@/components/ui/table";
 import { Plus, Eye, Pencil, Trash2 } from "lucide-react";
-import { CreateTagDialog } from "./_components/CreateTagDialog";
-import { ViewTagDialog } from "./_components/ViewTagDialog";
-import { EditTagDialog } from "./_components/EditTagDialog";
-import { DeleteTagDialog } from "./_components/DeleteTagDialog";
 
-interface Tag {
+import { CreateSubjectDialog } from "./_components/CreateSubjectDialog";
+import { ViewSubjectDialog } from "./_components/ViewSubjectDialog";
+import { EditSubjectDialog } from "./_components/EditSubjectDialog";
+import { DeleteSubjectDialog } from "./_components/DeleteSubjectDialog";
+
+interface Subject {
     id: number;
-    tag_text: string;
+    name: string;
 }
 
 interface Props {
-    tags: {
-        data: Tag[];
+    subjects: {
+        data: Subject[];
         current_page: number;
         last_page: number;
         prev_page_url: string | null;
@@ -32,7 +35,7 @@ interface Props {
     };
 }
 
-export default function Index({ tags, filters }: any) {
+export default function Index({ subjects, filters }: any) {
     const [search, setSearch] = useState(filters.search || "");
     const [isMounted, setIsMounted] = useState(false);
 
@@ -44,7 +47,7 @@ export default function Index({ tags, filters }: any) {
 
         const timeout = setTimeout(() => {
             router.get(
-                "/admin/tags",
+                "/admin/subjects",
                 { search },
                 { preserveState: true, replace: true }
             );
@@ -57,20 +60,23 @@ export default function Index({ tags, filters }: any) {
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [selectedTag, setSelectedTag] = useState<Tag | null>(null);
 
-    const handleView = (tag: Tag) => {
-        setSelectedTag(tag);
+    const [selectedSubject, setSelectedSubject] = useState<Subject | null>(
+        null
+    );
+
+    const handleView = (subject: Subject) => {
+        setSelectedSubject(subject);
         setViewDialogOpen(true);
     };
 
-    const handleEdit = (tag: Tag) => {
-        setSelectedTag(tag);
+    const handleEdit = (subject: Subject) => {
+        setSelectedSubject(subject);
         setEditDialogOpen(true);
     };
 
-    const handleDelete = (tag: Tag) => {
-        setSelectedTag(tag);
+    const handleDelete = (subject: Subject) => {
+        setSelectedSubject(subject);
         setDeleteDialogOpen(true);
     };
 
@@ -82,21 +88,23 @@ export default function Index({ tags, filters }: any) {
         <AdminLayout
             breadcrumbs={[
                 { title: "Dashboard", href: "/admin" },
-                { title: "Tags", href: "/admin/tags" },
+                { title: "Subjects", href: "/admin/subjects" },
             ]}
         >
-            <Head title="Tags" />
+            <Head title="Subjects" />
+
             <div className="p-6">
                 <Card>
                     <CardHeader>
                         <div className="flex items-center justify-between">
-                            <CardTitle>Tags</CardTitle>
+                            <CardTitle>Subjects</CardTitle>
                             <Button onClick={() => setCreateDialogOpen(true)}>
                                 <Plus className="mr-2 h-4 w-4" />
-                                Add Tag
+                                Add Subject
                             </Button>
                         </div>
                     </CardHeader>
+
                     <CardContent>
                         {/* Search */}
                         <div className="mb-4 flex w-[220px] gap-2">
@@ -113,28 +121,28 @@ export default function Index({ tags, filters }: any) {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>ID</TableHead>
-                                    <TableHead>Tag Text</TableHead>
+                                    <TableHead>Name</TableHead>
                                     <TableHead className="text-right">
                                         Actions
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {tags.data.length === 0 ? (
+                                {subjects.data.length === 0 ? (
                                     <TableRow>
                                         <TableCell
                                             colSpan={3}
                                             className="text-center"
                                         >
-                                            No tags found
+                                            No subjects found
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    tags.data.map((tag) => (
-                                        <TableRow key={tag.id}>
-                                            <TableCell>{tag.id}</TableCell>
+                                    subjects.data.map((subject) => (
+                                        <TableRow key={subject.id}>
+                                            <TableCell>{subject.id}</TableCell>
                                             <TableCell>
-                                                {tag.tag_text}
+                                                {subject.name}
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
@@ -142,7 +150,7 @@ export default function Index({ tags, filters }: any) {
                                                         variant="outline"
                                                         size="sm"
                                                         onClick={() =>
-                                                            handleView(tag)
+                                                            handleView(subject)
                                                         }
                                                     >
                                                         <Eye className="h-4 w-4" />
@@ -151,7 +159,7 @@ export default function Index({ tags, filters }: any) {
                                                         variant="outline"
                                                         size="sm"
                                                         onClick={() =>
-                                                            handleEdit(tag)
+                                                            handleEdit(subject)
                                                         }
                                                     >
                                                         <Pencil className="h-4 w-4" />
@@ -160,7 +168,9 @@ export default function Index({ tags, filters }: any) {
                                                         variant="destructive"
                                                         size="sm"
                                                         onClick={() =>
-                                                            handleDelete(tag)
+                                                            handleDelete(
+                                                                subject
+                                                            )
                                                         }
                                                     >
                                                         <Trash2 className="h-4 w-4" />
@@ -172,7 +182,6 @@ export default function Index({ tags, filters }: any) {
                                 )}
                             </TableBody>
                         </Table>
-
                         {/* Pagination */}
                         <div className="flex justify-center mt-6">
                             <div className="flex items-center space-x-1">
@@ -180,9 +189,9 @@ export default function Index({ tags, filters }: any) {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    disabled={!tags.prev_page_url}
+                                    disabled={!subjects.prev_page_url}
                                     onClick={() =>
-                                        goToPage(tags.prev_page_url)
+                                        goToPage(subjects.prev_page_url)
                                     }
                                 >
                                     Prev
@@ -191,8 +200,8 @@ export default function Index({ tags, filters }: any) {
                                 {/* Page Numbers */}
                                 {(() => {
                                     const pages = [];
-                                    const total = tags.last_page;
-                                    const current = tags.current_page;
+                                    const total = subjects.last_page;
+                                    const current = subjects.current_page;
                                     const maxVisible = 5;
 
                                     // Always show page 1
@@ -240,11 +249,11 @@ export default function Index({ tags, filters }: any) {
                                                 key={page}
                                                 onClick={() =>
                                                     goToPage(
-                                                        `/admin/tags?page=${page}`
+                                                        `/admin/subjects?page=${page}`
                                                     )
                                                 }
                                                 className={`px-3 py-1 rounded border text-sm ${
-                                                    tags.current_page ===
+                                                    subjects.current_page ===
                                                     page
                                                         ? "bg-blue-600 text-white"
                                                         : "hover:bg-gray-100"
@@ -260,9 +269,9 @@ export default function Index({ tags, filters }: any) {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    disabled={!tags.next_page_url}
+                                    disabled={!subjects.next_page_url}
                                     onClick={() =>
-                                        goToPage(tags.next_page_url)
+                                        goToPage(subjects.next_page_url)
                                     }
                                 >
                                     Next
@@ -272,27 +281,25 @@ export default function Index({ tags, filters }: any) {
                     </CardContent>
                 </Card>
 
-                <CreateTagDialog
+                {/* Dialogs */}
+                <CreateSubjectDialog
                     open={createDialogOpen}
                     onOpenChange={setCreateDialogOpen}
                 />
-
-                <ViewTagDialog
+                <ViewSubjectDialog
                     open={viewDialogOpen}
                     onOpenChange={setViewDialogOpen}
-                    tag={selectedTag}
+                    subject={selectedSubject}
                 />
-
-                <EditTagDialog
+                <EditSubjectDialog
                     open={editDialogOpen}
                     onOpenChange={setEditDialogOpen}
-                    tag={selectedTag}
+                    subject={selectedSubject}
                 />
-
-                <DeleteTagDialog
+                <DeleteSubjectDialog
                     open={deleteDialogOpen}
                     onOpenChange={setDeleteDialogOpen}
-                    tag={selectedTag}
+                    subject={selectedSubject}
                 />
             </div>
         </AdminLayout>

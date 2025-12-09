@@ -1,4 +1,5 @@
-import { Head } from "@inertiajs/react";
+import { Head, router } from "@inertiajs/react";
+import { useState, useEffect } from "react";
 import AdminLayout from "@/layouts/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,10 +40,39 @@ interface Attempt {
 }
 
 interface Props {
-    attempts: Attempt[];
+    attempts: {
+        data: Attempt[];
+        current_page: number;
+        last_page: number;
+        prev_page_url: string | null;
+        next_page_url: string | null;
+    };
 }
 
-export default function Index({ attempts }: Props) {
+export default function Index({ attempts, filters }: any) {
+    const [search, setSearch] = useState(filters.search || "");
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        if (!isMounted) {
+            setIsMounted(true);
+            return;
+        }
+
+        const timeout = setTimeout(() => {
+            router.get(
+                "/admin/attempts",
+                { search },
+                { preserveState: true, replace: true }
+            );
+        }, 500);
+
+        return () => clearTimeout(timeout);
+    }, [search]);
+
+    const goToPage = (url: string | null) => {
+        if (url) router.get(url);
+    };
     const formatDate = (dateString: string | null) => {
         if (!dateString) return "N/A";
         return new Date(dateString).toLocaleString();
@@ -62,6 +92,17 @@ export default function Index({ attempts }: Props) {
                         <CardTitle>Quiz Attempts</CardTitle>
                     </CardHeader>
                     <CardContent>
+                        {/* Search */}
+                        <div className="mb-4 flex w-[220px] gap-2">
+                            <input
+                                type="text"
+                                placeholder="Search subjects..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="border px-2 py-1 rounded w-full mb-4"
+                            />
+                        </div>
+
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -77,7 +118,7 @@ export default function Index({ attempts }: Props) {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {attempts.length === 0 ? (
+                                {attempts.data.length === 0 ? (
                                     <TableRow>
                                         <TableCell
                                             colSpan={7}
@@ -87,7 +128,7 @@ export default function Index({ attempts }: Props) {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    attempts.map((attempt) => (
+                                    attempts.data.map((attempt) => (
                                         <TableRow key={attempt.id}>
                                             <TableCell>{attempt.id}</TableCell>
                                             <TableCell>
@@ -132,6 +173,103 @@ export default function Index({ attempts }: Props) {
                                 )}
                             </TableBody>
                         </Table>
+
+                        {/* Pagination */}
+                        <div className="flex justify-center mt-6">
+                            <div className="flex items-center space-x-1">
+                                {/* Prev */}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!attempts.prev_page_url}
+                                    onClick={() =>
+                                        goToPage(attempts.prev_page_url)
+                                    }
+                                >
+                                    Prev
+                                </Button>
+
+                                {/* Page Numbers */}
+                                {(() => {
+                                    const pages = [];
+                                    const total = attempts.last_page;
+                                    const current = attempts.current_page;
+                                    const maxVisible = 5;
+
+                                    // Always show page 1
+                                    pages.push(1);
+
+                                    // Sliding window range
+                                    let start = Math.max(2, current - 2);
+                                    let end = Math.min(total - 1, current + 2);
+
+                                    if (current <= 3) {
+                                        end = Math.min(6, total - 1);
+                                    }
+
+                                    if (current >= total - 2) {
+                                        start = Math.max(2, total - 5);
+                                    }
+
+                                    // Ellipsis after page 1
+                                    if (start > 2) {
+                                        pages.push("...");
+                                    }
+
+                                    // Middle pages
+                                    for (let i = start; i <= end; i++) {
+                                        pages.push(i);
+                                    }
+
+                                    // Ellipsis before last page
+                                    if (end < total - 1) {
+                                        pages.push("...");
+                                    }
+
+                                    // Always show last page (if > 1)
+                                    if (total > 1) {
+                                        pages.push(total);
+                                    }
+
+                                    return pages.map((page, index) =>
+                                        page === "..." ? (
+                                            <span key={index} className="px-2">
+                                                ...
+                                            </span>
+                                        ) : (
+                                            <button
+                                                key={page}
+                                                onClick={() =>
+                                                    goToPage(
+                                                        `/admin/attempts?page=${page}`
+                                                    )
+                                                }
+                                                className={`px-3 py-1 rounded border text-sm ${
+                                                    attempts.current_page ===
+                                                    page
+                                                        ? "bg-blue-600 text-white"
+                                                        : "hover:bg-gray-100"
+                                                }`}
+                                            >
+                                                {page}
+                                            </button>
+                                        )
+                                    );
+                                })()}
+
+                                {/* Next */}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!attempts.next_page_url}
+                                    onClick={() =>
+                                        goToPage(attempts.next_page_url)
+                                    }
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
             </div>

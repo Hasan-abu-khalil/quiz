@@ -34,16 +34,16 @@ class Quiz extends Model
     //     return $this->belongsToMany(Question::class)->withTimestamps();
     // }
 
-    // public function questions()
-    // {
-    //     // explicit pivot table and keys
-    //     return $this->belongsToMany(Question::class, 'quiz_questions', 'quiz_id', 'question_id')
-    //         ->withPivot('order')
-    //         ->orderBy('quiz_questions.order')
-    //         ->withTimestamps();
-    // }
-
     public function questions()
+    {
+        // explicit pivot table and keys
+        return $this->belongsToMany(Question::class, 'quiz_questions', 'quiz_id', 'question_id')
+            ->withPivot('order')
+            ->orderBy('quiz_questions.order')
+            ->withTimestamps();
+    }
+
+    public function quizQuestion()
     {
         return $this->hasMany(QuizQuestion::class)->with('question')->orderBy('order');
     }

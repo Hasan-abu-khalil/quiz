@@ -43,13 +43,13 @@ export function CreateQuizDialog({
         subject_id: "",
         time_limit_minutes: "",
         total_questions: "",
-        questions: [{ question_id: "", order: "" }],
+        questions: [],
     });
 
     const addRow = () => {
         form.setData("questions", [
             ...form.data.questions,
-            { question_id: "", order: "" },
+            { question_id: "", order: form.data.questions.length + 1 },
         ]);
     };
 
@@ -68,6 +68,17 @@ export function CreateQuizDialog({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (!form.data.subject_id) {
+            toast.error("Please select a subject");
+            return;
+        }
+
+        const incomplete = form.data.questions.some((q) => !q.question_id);
+        if (incomplete) {
+            toast.error("Please select a question for all rows");
+            return;
+        }
+
         form.post(route("admin.quizzes.create"), {
             preserveScroll: true,
             onSuccess: () => {
@@ -78,6 +89,23 @@ export function CreateQuizDialog({
             onError: () => toast.error("Fix the errors"),
         });
     };
+
+    const [filteredQuestions, setFilteredQuestions] =
+        React.useState<Question[]>(questions);
+    React.useEffect(() => {
+        if (!form.data.subject_id) {
+            setFilteredQuestions(questions); // all questions
+            return;
+        }
+
+        fetch(route("admin.questions.bySubject", form.data.subject_id))
+            .then((res) => res.json())
+            .then((data) => {
+                setFilteredQuestions(data);
+                // reset selected questions
+                form.setData("questions", [{ question_id: "", order: "" }]);
+            });
+    }, [form.data.subject_id]);
 
     return (
         <FormDialog
@@ -124,18 +152,15 @@ export function CreateQuizDialog({
 
                 {/* Subject */}
                 <div className="grid gap-2 mb-4">
-                    <Label>Subject (optional)</Label>
+                    <Label>Subject</Label>
                     <Select
                         value={form.data.subject_id || ""}
-                        onValueChange={(v) =>
-                            form.setData("subject_id", v === "none" ? "" : v)
-                        }
+                        onValueChange={(v) => form.setData("subject_id", v)}
                     >
                         <SelectTrigger>
                             <SelectValue placeholder="Select subject" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
                             {subjects.map((s) => (
                                 <SelectItem key={s.id} value={String(s.id)}>
                                     {s.name}
@@ -201,7 +226,7 @@ export function CreateQuizDialog({
                                         </SelectTrigger>
 
                                         <SelectContent>
-                                            {questions
+                                            {filteredQuestions
                                                 .filter(
                                                     (ques) =>
                                                         !form.data.questions.some(

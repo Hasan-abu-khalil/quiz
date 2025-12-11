@@ -182,9 +182,75 @@ export function EditQuizDialog({
         }
     };
 
+    const handleEditOrder = async (
+        quizQuestionId: number,
+        newOrder: number
+    ) => {
+        if (!quiz) return;
+
+        try {
+            // Update backend
+            await axios.put(
+                `/admin/quizzes/${quiz.id}/questions/${quizQuestionId}/order`,
+                {
+                    new_order: newOrder,
+                }
+            );
+
+            // Update local state
+            const updatedQuestions = (form.data.questions || []).map((q) => {
+                if (q.id === quizQuestionId) {
+                    return { ...q, order: newOrder };
+                }
+
+                // If another question has the same order, swap it with the current
+                if (q.order === newOrder && q.id !== quizQuestionId) {
+                    const oldOrder = form.data.questions.find(
+                        (qq) => qq.id === quizQuestionId
+                    )?.order;
+                    return { ...q, order: oldOrder ?? q.order };
+                }
+
+                return q;
+            });
+
+            // Sort questions by order so the UI updates properly
+            updatedQuestions.sort((a, b) => a.order - b.order);
+
+            form.setData("questions", updatedQuestions);
+
+            toast.success("Order updated successfully");
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to update order");
+        }
+    };
+
+    const [editingQuestionId, setEditingQuestionId] = React.useState<
+        number | null
+    >(null);
+
     const [newQuestionId, setNewQuestionId] = React.useState<number | null>(
         null
     );
+    const [filteredQuestions, setFilteredQuestions] =
+        React.useState<Question[]>(allQuestions);
+
+    React.useEffect(() => {
+        if (!form.data.subject_id) {
+            setFilteredQuestions(allQuestions);
+            return;
+        }
+
+        axios
+            .get(`/admin/questions/by-subject/${form.data.subject_id}`)
+            .then((res) => {
+                setFilteredQuestions(res.data);
+            })
+            .catch(() => {
+                toast.error("Failed to load questions for selected subject");
+            });
+    }, [form.data.subject_id]);
 
     const handleAddQuestion = async () => {
         if (!quiz || !newQuestionId) return;
@@ -383,7 +449,7 @@ export function EditQuizDialog({
                                 <SelectValue placeholder="Select question" />
                             </SelectTrigger>
                             <SelectContent>
-                                {allQuestions
+                                {filteredQuestions
                                     .filter(
                                         (question) =>
                                             !form.data.questions
@@ -424,69 +490,131 @@ export function EditQuizDialog({
                                 </thead>
                                 <tbody>
                                     {paginatedQuestions.map((q) => (
-                                        <tr key={q.id}>
+                                        <tr
+                                            key={q.id}
+                                            className="hover:bg-gray-50"
+                                        >
                                             <td className="p-2 border">
                                                 {q.question.question_text}
                                             </td>
-                                            <td className="p-2 border flex gap-2">
+
+                                            {/* Order editing */}
+                                            <td className="p-2 border flex gap-2 items-center">
                                                 <Select
-                                                    value={String(
-                                                        q.question.id
-                                                    )}
-                                                    onValueChange={(
-                                                        newQuestionId
-                                                    ) =>
-                                                        handleEditQuestion(
+                                                    value={String(q.order)}
+                                                    onValueChange={(value) =>
+                                                        handleEditOrder(
                                                             q.id,
-                                                            Number(
-                                                                newQuestionId
-                                                            )
+                                                            Number(value)
                                                         )
                                                     }
                                                 >
                                                     <SelectTrigger>
-                                                        <SelectValue placeholder="Select question" />
+                                                        <SelectValue placeholder="Select order" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {allQuestions
-                                                            .filter(
-                                                                (question) =>
-                                                                    !form.data.questions
-                                                                        ?.map(
-                                                                            (
-                                                                                qq
-                                                                            ) =>
-                                                                                qq
-                                                                                    .question
-                                                                                    .id
-                                                                        )
-                                                                        .includes(
-                                                                            question.id
-                                                                        ) ||
-                                                                    question.id ===
-                                                                        q
-                                                                            .question
-                                                                            .id
-                                                            )
-                                                            .map((question) => (
-                                                                <SelectItem
-                                                                    key={
-                                                                        question.id
-                                                                    }
-                                                                    value={String(
-                                                                        question.id
-                                                                    )}
-                                                                >
-                                                                    {
-                                                                        question.question_text
-                                                                    }
-                                                                </SelectItem>
-                                                            ))}
+                                                        {Array.from(
+                                                            {
+                                                                length: form
+                                                                    .data
+                                                                    .questions
+                                                                    .length,
+                                                            },
+                                                            (_, i) => i + 1
+                                                        ).map((num) => (
+                                                            <SelectItem
+                                                                key={num}
+                                                                value={String(
+                                                                    num
+                                                                )}
+                                                            >
+                                                                {num}
+                                                            </SelectItem>
+                                                        ))}
                                                     </SelectContent>
                                                 </Select>
 
+                                                {/* Edit button for question text (optional) */}
+                                                {editingQuestionId === q.id ? (
+                                                    <Select
+                                                        value={String(
+                                                            q.question.id
+                                                        )}
+                                                        onValueChange={(
+                                                            newQuestionId
+                                                        ) => {
+                                                            handleEditQuestion(
+                                                                q.id,
+                                                                Number(
+                                                                    newQuestionId
+                                                                )
+                                                            );
+                                                            setEditingQuestionId(
+                                                                null
+                                                            );
+                                                        }}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select question" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {filteredQuestions
+                                                                .filter(
+                                                                    (
+                                                                        question
+                                                                    ) =>
+                                                                        !form.data.questions
+                                                                            ?.map(
+                                                                                (
+                                                                                    qq
+                                                                                ) =>
+                                                                                    qq
+                                                                                        .question
+                                                                                        .id
+                                                                            )
+                                                                            .includes(
+                                                                                question.id
+                                                                            ) ||
+                                                                        question.id ===
+                                                                            q
+                                                                                .question
+                                                                                .id
+                                                                )
+                                                                .map(
+                                                                    (
+                                                                        question
+                                                                    ) => (
+                                                                        <SelectItem
+                                                                            key={
+                                                                                question.id
+                                                                            }
+                                                                            value={String(
+                                                                                question.id
+                                                                            )}
+                                                                        >
+                                                                            {
+                                                                                question.question_text
+                                                                            }
+                                                                        </SelectItem>
+                                                                    )
+                                                                )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                ) : (
+                                                    <button
+                                                        className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
+                                                        onClick={() =>
+                                                            setEditingQuestionId(
+                                                                q.id
+                                                            )
+                                                        }
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                )}
+
                                                 <button
-                                                    className="text-red-500"
+                                                    className="text-red-500 px-2 py-1 border rounded hover:bg-red-100"
                                                     onClick={() =>
                                                         handleDeleteQuestion(
                                                             q.id

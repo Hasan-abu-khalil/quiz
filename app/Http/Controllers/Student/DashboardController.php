@@ -12,7 +12,7 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $subjects = Subject::paginate(6);
+        $subjects = Subject::whereHas('quizzes.questions')->paginate(6);
         $lastAttempts = QuizAttempt::with('quiz')
             ->where('student_id', Auth::id())
             ->orderByDesc('created_at')
@@ -25,7 +25,9 @@ class DashboardController extends Controller
     public function quizzesBySubject($subjectId)
     {
         $subject = Subject::findOrFail($subjectId);
-        $quizzes = Quiz::where('subject_id', $subjectId)->paginate(6);
+        $quizzes = Quiz::where('subject_id', $subjectId)
+            ->whereHas('questions')
+            ->paginate(6);
         return view('student.quizzes-by-subject', compact('subject', 'quizzes'));
     }
 

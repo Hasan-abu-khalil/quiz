@@ -133,7 +133,7 @@ class QuizController extends Controller
         $quizQuestion = QuizQuestion::create([
             'quiz_id' => $quiz->id,
             'question_id' => $request->question_id,
-            'order' => $quiz->questions()->count() + 1,
+            'order' => $quiz->quizQuestion()->count() + 1,
         ]);
 
         return response()->json([
@@ -159,6 +159,32 @@ class QuizController extends Controller
         return response()->json(['success' => 'Question updated successfully']);
     }
 
+    public function updateOrder(Request $request, Quiz $quiz, QuizQuestion $quizQuestion)
+    {
+        $request->validate([
+            'new_order' => 'required|integer|min:1',
+        ]);
+
+        $newOrder = $request->input('new_order');
+
+        // Swap orders if needed
+        $existing = QuizQuestion::where('quiz_id', $quiz->id)
+            ->where('order', $newOrder)
+            ->first();
+
+        if ($existing) {
+            $existing->order = $quizQuestion->order;
+            $existing->save();
+        }
+
+        $quizQuestion->order = $newOrder;
+        $quizQuestion->save();
+
+        return response()->json(['message' => 'Order updated successfully']);
+    }
+
+
+
     public function destroyQuestion($quizId, $questionId)
     {
         $quizQuestion = QuizQuestion::where('quiz_id', $quizId)
@@ -178,7 +204,11 @@ class QuizController extends Controller
 
     public function show($id)
     {
-        $quiz = Quiz::with(['subject', 'questions.question'])->findOrFail($id);
+        $quiz = Quiz::with(['subject', 'quizQuestion.question'])->findOrFail($id);
+
+        $quiz->questions = $quiz->quizQuestion;
+        unset($quiz->quizQuestion);
+
         return response()->json(['quiz' => $quiz]);
     }
 

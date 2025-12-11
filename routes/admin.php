@@ -100,6 +100,14 @@ Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
         Route::delete('/admin/quizzes/{quiz}/questions/{question}', [QuizController::class, 'destroyQuestion'])->name('admin.quizzes.questions.destroy');
         Route::put('/admin/quizzes/{quiz}/questions/{question}', [QuizController::class, 'updateQuestion']);
         Route::post('/admin/quizzes/{quiz}/questions', [QuizController::class, 'storeQuestion']);
+        Route::get('/admin/questions/by-subject/{subjectId}', function ($subjectId) {
+            return \App\Models\Question::where('subject_id', $subjectId)
+                ->select('id', 'question_text')
+                ->get();
+        })->name('admin.questions.bySubject');
+        
+        Route::put('/admin/quizzes/{quiz}/questions/{quizQuestion}/order', [QuizController::class, 'updateOrder'])
+            ->name('quizzes.questions.updateOrder');
 
     });
 

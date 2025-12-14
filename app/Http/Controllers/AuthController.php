@@ -44,7 +44,6 @@ class AuthController extends Controller
             'password' => ['required', 'string', 'min:6', 'max:100'],
             'remember' => ['nullable', 'boolean'],
         ], [
-
             'email.required' => 'Email is required.',
             'email.email' => 'Please enter a valid email address.',
             'password.required' => 'Password is required.',
@@ -54,8 +53,6 @@ class AuthController extends Controller
             'email' => $validated['email'],
             'password' => $validated['password'],
         ];
-
-        $credentials = $request->only('email', 'password');
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();

@@ -19,7 +19,7 @@ import { CreateQuestionDialog } from "./_components/CreateQuestionDialog";
 import { ViewQuestionDialog } from "./_components/ViewQuestionDialog";
 import { EditQuestionDialog } from "./_components/EditQuestionDialog";
 import { DeleteQuestionDialog } from "./_components/DeleteQuestionDialog";
-
+import { ImportQuestionsDialog } from "./_components/ImportQuestionsDialog";
 interface Subject {
     id: number;
     name: string;
@@ -152,6 +152,7 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
     const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(
         null
     );
+    const [importDialogOpen, setImportDialogOpen] = useState(false);
 
     const handleView = (question: Question) => {
         setSelectedQuestion(question);
@@ -396,10 +397,21 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <CardTitle>Questions</CardTitle>
-                            <Button onClick={() => setCreateDialogOpen(true)}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Add Question
-                            </Button>
+                            <div>
+                                <Button
+                                    onClick={() => setCreateDialogOpen(true)}
+                                >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Add Question
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setImportDialogOpen(true)}
+                                    className="mx-3"
+                                >
+                                    Import Excel
+                                </Button>
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -862,6 +874,11 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
                     onOpenChange={setCreateDialogOpen}
                     subjects={subjects}
                     tags={tags}
+                />
+
+                <ImportQuestionsDialog
+                    open={importDialogOpen}
+                    onOpenChange={setImportDialogOpen}
                 />
 
                 <ViewQuestionDialog

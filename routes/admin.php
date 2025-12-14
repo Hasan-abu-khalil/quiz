@@ -31,6 +31,7 @@ Route::middleware(['auth', 'can.access'])->group(function () {
 
 // Admin/Teacher routes - These will use Inertia React
 Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
+
     // Role
     Route::get('/admin/roles', [RoleController::class, 'index'])->name('admin.roles.index');
     Route::get('/admin/roles/{id}', [RoleController::class, 'show'])->name('admin.roles.show');
@@ -72,6 +73,8 @@ Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
     Route::delete('/admin/subjects/{id}', [SubjectController::class, 'destroy'])->name('admin.subjects.destroy');
 
     // Question
+    Route::post('/admin/questions/import', [QuestionController::class, 'import'])
+        ->name('admin.questions.import');
     Route::get('/admin/questions', [QuestionController::class, 'index'])->name('admin.questions.index');
     Route::post('/admin/questions', [QuestionController::class, 'create'])->name('admin.questions.create');
     Route::get('/admin/questions/review', [QuestionController::class, 'reviewIndex'])->name('admin.questions.review.index');
@@ -83,6 +86,7 @@ Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
         Route::get('/admin/questions/{id}/edit', [QuestionController::class, 'edit'])->name('admin.questions.edit');
         Route::post('/admin/questions/{id}', [QuestionController::class, 'update'])->name('admin.questions.update');
         Route::delete('/admin/questions/{id}', [QuestionController::class, 'destroy'])->name('admin.questions.destroy');
+
     });
 
     // QuestionOption

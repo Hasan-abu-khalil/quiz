@@ -8,7 +8,9 @@ use App\Models\Tag;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Yajra\DataTables\DataTables;
-
+use App\Imports\QuestionsImport;
+use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\Validators\ValidationException;
 class QuestionController extends Controller
 {
     public function index(Request $request)
@@ -86,6 +88,34 @@ class QuestionController extends Controller
     /**
      * Show the form for creating a new resource.
      */
+   public function import(Request $request)
+{
+    $request->validate([
+        'file' => 'required|file|mimes:csv,', //txt,xlsx
+    ]);
+
+    try {
+        Excel::import(new QuestionsImport, $request->file('file'));
+
+        return redirect()
+            ->route('admin.questions.index')
+            ->with('success', 'Questions imported successfully');
+
+    } catch (ValidationException $e) {
+        // Catch validation errors from the import
+        return redirect()
+            ->back()
+            ->withErrors(['file' => 'The Excel file is invalid or contains errors.']);
+    } catch (\Exception $e) {
+        // Catch any other errors
+        return redirect()
+            ->back()
+            ->withErrors(['file' => 'Failed to import the file: ' . $e->getMessage()]);
+    }
+}
+
+
+
     public function create(Request $request)
     {
         $request->validate([

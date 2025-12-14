@@ -160,7 +160,14 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        // Always redirect to login route
+        // Check if this is an Inertia request
+        if ($this->wantsInertiaResponse($request)) {
+            // Use Inertia::location() for full page navigation to login
+            // This ensures we get the correct login page (Inertia or Blade)
+            return \Inertia\Inertia::location(route('login'));
+        }
+
+        // For non-Inertia requests, use regular redirect
         return redirect()->route('login');
     }
 }

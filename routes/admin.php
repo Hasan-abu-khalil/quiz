@@ -76,10 +76,12 @@ Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
     Route::post('/admin/questions/import', [QuestionController::class, 'import'])
         ->name('admin.questions.import');
     Route::get('/admin/questions', [QuestionController::class, 'index'])->name('admin.questions.index');
+    Route::get('/admin/questions/create', [QuestionController::class, 'createForm'])->name('admin.questions.createForm');
     Route::post('/admin/questions', [QuestionController::class, 'create'])->name('admin.questions.create');
     Route::get('/admin/questions/review', [QuestionController::class, 'reviewIndex'])->name('admin.questions.review.index');
     Route::get('/admin/questions/my-review', [QuestionController::class, 'myReviewIndex'])->name('admin.questions.myReview.index');
     Route::post('/admin/questions/{id}/assign', [QuestionController::class, 'assign'])->name('admin.questions.assign');
+    Route::post('/admin/questions/{id}/unassign', [QuestionController::class, 'unassign'])->name('admin.questions.unassign');
     Route::post('/admin/questions/{id}/change-state', [QuestionController::class, 'changeState'])->name('admin.questions.changeState');
     Route::middleware('can.access:question')->group(function () {
         Route::get('/admin/questions/{id}', [QuestionController::class, 'show'])->name('admin.questions.show');

@@ -20,9 +20,14 @@ class Question extends Model
     protected $fillable = [
         'subject_id',
         'question_text',
+        'explanations',
         'created_by',
         'state',
         'assigned_to',
+    ];
+
+    protected $casts = [
+        'explanations' => 'array',
     ];
 
     protected $attributes = [
@@ -82,6 +87,45 @@ class Question extends Model
 
         // Log state change
         $this->logStateChange(self::STATE_INITIAL, self::STATE_UNDER_REVIEW, $userId);
+
+        return true;
+    }
+
+    /**
+     * Check if question can be unassigned
+     */
+    public function canBeUnassigned(int $userId, bool $isAdmin): bool
+    {
+        // Must be assigned to someone
+        if (! $this->assigned_to) {
+            return false;
+        }
+
+        // Must be in under-review state
+        if ($this->state !== self::STATE_UNDER_REVIEW) {
+            return false;
+        }
+
+        // User must be assigned to it OR be an admin
+        return $this->assigned_to === $userId || $isAdmin;
+    }
+
+    /**
+     * Unassign question (set back to initial state)
+     */
+    public function unassign(int $changedBy): bool
+    {
+        if (! $this->assigned_to) {
+            return false;
+        }
+
+        $fromState = $this->state;
+        $this->assigned_to = null;
+        $this->state = self::STATE_INITIAL;
+        $this->save();
+
+        // Log state change
+        $this->logStateChange($fromState, self::STATE_INITIAL, $changedBy, 'Question unassigned');
 
         return true;
     }

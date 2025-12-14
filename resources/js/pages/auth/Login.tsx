@@ -19,6 +19,7 @@ export default function Login() {
     const form = useForm({
         email: "",
         password: "",
+        remember: false,
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -84,6 +85,31 @@ export default function Login() {
                                 />
                                 <InputError message={form.errors.password} />
                             </div>
+                            <div className="flex items-center space-x-2">
+                                <Checkbox
+                                    id="remember"
+                                    checked={form.data.remember}
+                                    onCheckedChange={(checked) =>
+                                        form.setData(
+                                            "remember",
+                                            checked === true
+                                        )
+                                    }
+                                />
+                                <Label
+                                    htmlFor="remember"
+                                    className="text-sm font-normal cursor-pointer"
+                                >
+                                    Remember me
+                                </Label>
+                            </div>
+                            <Button
+                                type="submit"
+                                className="w-full"
+                                disabled={form.processing}
+                            >
+                                {form.processing ? "Logging in..." : "Login"}
+                            </Button>
                         </form>
                         <div className="mt-4 text-center text-sm">
                             <Link

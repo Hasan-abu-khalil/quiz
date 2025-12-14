@@ -14,10 +14,17 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, Pencil, Trash2, CheckCircle, Clock, X } from "lucide-react";
-import { CreateQuestionDialog } from "./_components/CreateQuestionDialog";
-import { ViewQuestionDialog } from "./_components/ViewQuestionDialog";
-import { EditQuestionDialog } from "./_components/EditQuestionDialog";
+import {
+    Plus,
+    Eye,
+    Pencil,
+    Trash2,
+    CheckCircle,
+    Clock,
+    X,
+    History,
+    UserMinus,
+} from "lucide-react";
 import { DeleteQuestionDialog } from "./_components/DeleteQuestionDialog";
 import { ImportQuestionsDialog } from "./_components/ImportQuestionsDialog";
 interface Subject {
@@ -34,6 +41,18 @@ interface Option {
     id: number;
     option_text: string;
     is_correct: boolean;
+}
+
+interface StateHistory {
+    id: number;
+    from_state: string | null;
+    to_state: string;
+    changed_by: {
+        id: number;
+        name: string;
+    } | null;
+    notes: string | null;
+    created_at: string;
 }
 
 interface Question {
@@ -57,6 +76,7 @@ interface Question {
     subject?: Subject;
     tags?: Tag[];
     options?: Option[];
+    state_history?: StateHistory[];
 }
 
 interface Props {
@@ -145,23 +165,56 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
         updateFilters({ subject_id: subjectId });
     };
 
-    const [createDialogOpen, setCreateDialogOpen] = useState(false);
-    const [viewDialogOpen, setViewDialogOpen] = useState(false);
-    const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(
         null
     );
     const [importDialogOpen, setImportDialogOpen] = useState(false);
+    const [showHistoryForQuestion, setShowHistoryForQuestion] = useState<
+        number | null
+    >(null);
+    const [questionHistory, setQuestionHistory] = useState<{
+        [key: number]: StateHistory[];
+    }>({});
 
     const handleView = (question: Question) => {
-        setSelectedQuestion(question);
-        setViewDialogOpen(true);
+        router.visit(`/admin/questions/${question.id}`);
+    };
+
+    const handleToggleHistory = async (questionId: number) => {
+        if (showHistoryForQuestion === questionId) {
+            setShowHistoryForQuestion(null);
+        } else {
+            setShowHistoryForQuestion(questionId);
+            // Fetch history if not already loaded
+            if (!questionHistory[questionId]) {
+                try {
+                    const response = await fetch(
+                        `/admin/questions/${questionId}`,
+                        {
+                            headers: {
+                                Accept: "application/json",
+                                "X-Requested-With": "XMLHttpRequest",
+                            },
+                            credentials: "same-origin",
+                        }
+                    );
+                    const data = await response.json();
+                    if (data.state_history) {
+                        setQuestionHistory((prev) => ({
+                            ...prev,
+                            [questionId]: data.state_history,
+                        }));
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch question history:", error);
+                }
+            }
+        }
     };
 
     const handleEdit = (question: Question) => {
-        setSelectedQuestion(question);
-        setEditDialogOpen(true);
+        router.visit(`/admin/questions/${question.id}/edit`);
     };
 
     const handleDelete = (question: Question) => {
@@ -217,6 +270,19 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
         );
     };
 
+    const handleUnassign = (questionId: number) => {
+        router.post(
+            `/admin/questions/${questionId}/unassign`,
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    router.reload({ only: ["questions"] });
+                },
+            }
+        );
+    };
+
     const renderQuestionsTable = (questionsData: any) => {
         const showAssignedTo = activeTab !== "my-review";
         const colSpan = showAssignedTo ? 7 : 6;
@@ -231,68 +297,158 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
             );
         }
 
-        return questionsData.data.map((question: Question) => (
-            <TableRow key={question.id}>
-                <TableCell className="w-16">{question.id}</TableCell>
-                <TableCell className="max-w-md">
-                    <div
-                        className="text-sm overflow-hidden"
-                        style={{
-                            display: "-webkit-box",
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: "vertical",
-                        }}
-                    >
-                        {question.question_text}
-                    </div>
-                    {question.tags && question.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                            {question.tags.map((tag) => (
-                                <span
-                                    key={tag.id}
-                                    className="text-xs bg-muted px-2 py-0.5 rounded"
-                                >
-                                    {tag.tag_text}
-                                </span>
-                            ))}
-                        </div>
-                    )}
-                </TableCell>
-                <TableCell>{question.subject?.name || "N/A"}</TableCell>
-                <TableCell>{question.creator?.name || "N/A"}</TableCell>
-                {showAssignedTo && (
-                    <TableCell>
-                        {question.assignedTo?.name ||
-                            question.assigned_to_user?.name ||
-                            "—"}
-                    </TableCell>
-                )}
-                {question.state && (
-                    <TableCell>
-                        <span
-                            className={`text-xs px-2 py-0.5 rounded ${
-                                question.state === "initial"
-                                    ? "bg-gray-200"
-                                    : question.state === "under-review"
-                                    ? "bg-yellow-200"
-                                    : "bg-green-200"
-                            }`}
+        return questionsData.data.flatMap((question: Question) =>
+            [
+                <TableRow key={question.id}>
+                    <TableCell className="w-16">{question.id}</TableCell>
+                    <TableCell className="max-w-md">
+                        <div
+                            className="text-sm overflow-hidden"
+                            style={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: "vertical",
+                            }}
                         >
-                            {question.state === "initial"
-                                ? "Unassigned"
-                                : question.state === "under-review"
-                                ? "Under Review"
-                                : "Done"}
-                        </span>
+                            {question.question_text}
+                        </div>
+                        {question.tags && question.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                                {question.tags.map((tag) => (
+                                    <span
+                                        key={tag.id}
+                                        className="text-xs bg-muted px-2 py-0.5 rounded"
+                                    >
+                                        {tag.tag_text}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
                     </TableCell>
-                )}
-                <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                        {activeTab === "review" &&
-                            question.state === "initial" && (
+                    <TableCell>{question.subject?.name || "N/A"}</TableCell>
+                    <TableCell>{question.creator?.name || "N/A"}</TableCell>
+                    {showAssignedTo && (
+                        <TableCell>
+                            {question.assignedTo?.name ||
+                                question.assigned_to_user?.name ||
+                                "—"}
+                        </TableCell>
+                    )}
+                    {question.state && (
+                        <TableCell>
+                            <span
+                                className={`text-xs px-2 py-0.5 rounded ${
+                                    question.state === "initial"
+                                        ? "bg-gray-200"
+                                        : question.state === "under-review"
+                                        ? "bg-yellow-200"
+                                        : "bg-green-200"
+                                }`}
+                            >
+                                {question.state === "initial"
+                                    ? "Unassigned"
+                                    : question.state === "under-review"
+                                    ? "Under Review"
+                                    : "Done"}
+                            </span>
+                        </TableCell>
+                    )}
+                    <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                            {activeTab === "review" &&
+                                question.state === "initial" && (
+                                    <>
+                                        {question.creator?.id ===
+                                            currentUser?.id && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() =>
+                                                    handleEdit(question)
+                                                }
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                        <Button
+                                            variant="default"
+                                            size="sm"
+                                            onClick={() =>
+                                                handleAssign(question.id)
+                                            }
+                                        >
+                                            Assign to Me
+                                        </Button>
+                                    </>
+                                )}
+                            {activeTab === "my-review" &&
+                                question.state === "under-review" && (
+                                    <>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleEdit(question)}
+                                        >
+                                            <Pencil className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                                handleUnassign(question.id)
+                                            }
+                                        >
+                                            <UserMinus className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="default"
+                                            size="sm"
+                                            onClick={() =>
+                                                handleChangeState(
+                                                    question.id,
+                                                    "done"
+                                                )
+                                            }
+                                        >
+                                            <CheckCircle className="h-4 w-4 mr-1" />
+                                            Mark as Done
+                                        </Button>
+                                    </>
+                                )}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleView(question)}
+                            >
+                                <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleToggleHistory(question.id)}
+                                className={
+                                    showHistoryForQuestion === question.id
+                                        ? "bg-primary text-primary-foreground"
+                                        : ""
+                                }
+                            >
+                                <History className="h-4 w-4" />
+                            </Button>
+                            {activeTab === "all" && (
                                 <>
-                                    {question.creator?.id ===
-                                        currentUser?.id && (
+                                    {/* Show edit button if:
+                                    - User is admin, OR
+                                    - User created it and it's unassigned, OR
+                                    - User is assigned to it and it's under review */}
+                                    {(currentUser?.roles?.includes("admin") ||
+                                        (question.creator?.id ===
+                                            currentUser?.id &&
+                                            question.state === "initial" &&
+                                            !question.assigned_to) ||
+                                        (question.assigned_to ===
+                                            currentUser?.id &&
+                                            question.state ===
+                                                "under-review")) && (
                                         <Button
                                             variant="outline"
                                             size="sm"
@@ -301,87 +457,115 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
                                             <Pencil className="h-4 w-4" />
                                         </Button>
                                     )}
-                                    <Button
-                                        variant="default"
-                                        size="sm"
-                                        onClick={() =>
-                                            handleAssign(question.id)
-                                        }
-                                    >
-                                        Assign to Me
-                                    </Button>
+                                    {/* Show unassign button if:
+                                    - Question is under-review AND
+                                    - (User is assigned to it OR user is admin) */}
+                                    {question.state === "under-review" &&
+                                        (question.assigned_to ===
+                                            currentUser?.id ||
+                                            currentUser?.roles?.includes(
+                                                "admin"
+                                            )) && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() =>
+                                                    handleUnassign(question.id)
+                                                }
+                                            >
+                                                <UserMinus className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    {/* Show delete button only if user created it or is admin */}
+                                    {(currentUser?.roles?.includes("admin") ||
+                                        question.creator?.id ===
+                                            currentUser?.id) && (
+                                        <Button
+                                            variant="destructive"
+                                            size="sm"
+                                            onClick={() =>
+                                                handleDelete(question)
+                                            }
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    )}
                                 </>
                             )}
-                        {activeTab === "my-review" &&
-                            question.state === "under-review" && (
-                                <>
+                        </div>
+                    </TableCell>
+                </TableRow>,
+                showHistoryForQuestion === question.id && (
+                    <TableRow key={`${question.id}-history`}>
+                        <TableCell colSpan={colSpan} className="p-0">
+                            <div className="max-h-64 overflow-y-auto border-t bg-muted/50 p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="font-semibold text-sm">
+                                        Status History
+                                    </h4>
                                     <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleEdit(question)}
-                                    >
-                                        <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                        variant="default"
+                                        variant="ghost"
                                         size="sm"
                                         onClick={() =>
-                                            handleChangeState(
-                                                question.id,
-                                                "done"
+                                            setShowHistoryForQuestion(null)
+                                        }
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                {questionHistory[question.id] &&
+                                questionHistory[question.id].length > 0 ? (
+                                    <div className="space-y-3">
+                                        {questionHistory[question.id].map(
+                                            (history) => (
+                                                <div
+                                                    key={history.id}
+                                                    className="border-l-2 border-primary pl-3 pb-3"
+                                                >
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs font-medium">
+                                                                {history.from_state
+                                                                    ? `${history.from_state} → ${history.to_state}`
+                                                                    : `Created → ${history.to_state}`}
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {new Date(
+                                                                history.created_at
+                                                            ).toLocaleString()}
+                                                        </span>
+                                                    </div>
+                                                    {history.changed_by && (
+                                                        <p className="text-xs text-muted-foreground mb-1">
+                                                            Changed by:{" "}
+                                                            {
+                                                                history
+                                                                    .changed_by
+                                                                    .name
+                                                            }
+                                                        </p>
+                                                    )}
+                                                    {history.notes && (
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            {history.notes}
+                                                        </p>
+                                                    )}
+                                                </div>
                                             )
-                                        }
-                                    >
-                                        <CheckCircle className="h-4 w-4 mr-1" />
-                                        Mark as Done
-                                    </Button>
-                                </>
-                            )}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleView(question)}
-                        >
-                            <Eye className="h-4 w-4" />
-                        </Button>
-                        {activeTab === "all" && (
-                            <>
-                                {/* Show edit button if:
-                                    - User is admin, OR
-                                    - User created it and it's unassigned, OR
-                                    - User is assigned to it and it's under review */}
-                                {(currentUser?.roles?.includes("admin") ||
-                                    (question.creator?.id === currentUser?.id &&
-                                        question.state === "initial" &&
-                                        !question.assigned_to) ||
-                                    (question.assigned_to === currentUser?.id &&
-                                        question.state === "under-review")) && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleEdit(question)}
-                                    >
-                                        <Pencil className="h-4 w-4" />
-                                    </Button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                        Loading history...
+                                    </p>
                                 )}
-                                {/* Show delete button only if user created it or is admin */}
-                                {(currentUser?.roles?.includes("admin") ||
-                                    question.creator?.id ===
-                                        currentUser?.id) && (
-                                    <Button
-                                        variant="destructive"
-                                        size="sm"
-                                        onClick={() => handleDelete(question)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                )}
-                            </>
-                        )}
-                    </div>
-                </TableCell>
-            </TableRow>
-        ));
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                ),
+            ].filter(Boolean)
+        );
     };
 
     return (
@@ -399,7 +583,9 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
                             <CardTitle>Questions</CardTitle>
                             <div>
                                 <Button
-                                    onClick={() => setCreateDialogOpen(true)}
+                                    onClick={() =>
+                                        router.visit("/admin/questions/create")
+                                    }
                                 >
                                     <Plus className="mr-2 h-4 w-4" />
                                     Add Question
@@ -869,30 +1055,9 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
                     </CardContent>
                 </Card>
 
-                <CreateQuestionDialog
-                    open={createDialogOpen}
-                    onOpenChange={setCreateDialogOpen}
-                    subjects={subjects}
-                    tags={tags}
-                />
-
                 <ImportQuestionsDialog
                     open={importDialogOpen}
                     onOpenChange={setImportDialogOpen}
-                />
-
-                <ViewQuestionDialog
-                    open={viewDialogOpen}
-                    onOpenChange={setViewDialogOpen}
-                    question={selectedQuestion}
-                />
-
-                <EditQuestionDialog
-                    open={editDialogOpen}
-                    onOpenChange={setEditDialogOpen}
-                    question={selectedQuestion}
-                    subjects={subjects}
-                    tags={tags}
                 />
 
                 <DeleteQuestionDialog

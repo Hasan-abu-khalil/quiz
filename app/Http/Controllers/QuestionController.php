@@ -143,16 +143,36 @@ class QuestionController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Show the form for creating a new question.
+     */
+    public function createForm(Request $request)
+    {
+        if ($this->wantsInertiaResponse($request)) {
+            return \Inertia\Inertia::render('admin/Questions/Create', [
+                'subjects' => Subject::select('id', 'name')->get(),
+                'tags' => \App\Models\Tag::select('id', 'tag_text')->get(),
+            ]);
+        }
+
+        // Legacy fallback
+        $subjects = Subject::select('id', 'name')->get();
+
+        return view('Dashboard/Question/question', compact('subjects'));
+    }
+
+    /**
+     * Import questions from Excel file.
      */
     public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:csv,', // txt,xlsx
+            'file' => 'required|file|mimes:xlsx',
         ]);
 
         try {
-            Excel::import(new QuestionsImport, $request->file('file'));
+            $file = $request->file('file');
+            $filePath = $file->getRealPath();
+            Excel::import(new QuestionsImport($filePath), $file);
 
             return redirect()
                 ->route('admin.questions.index')
@@ -181,6 +201,14 @@ class QuestionController extends Controller
             'options' => 'required|array|min:1',
             'options.*.option_text' => 'required|string',
             'options.*.is_correct' => 'boolean',
+            'explanations' => 'nullable|array',
+            'explanations.correct' => 'nullable|string',
+            'explanations.wrong' => 'nullable|string',
+            'explanations.option1' => 'nullable|string',
+            'explanations.option2' => 'nullable|string',
+            'explanations.option3' => 'nullable|string',
+            'explanations.option4' => 'nullable|string',
+            'explanations.option5' => 'nullable|string',
         ]);
 
         // Ensure at least one option is marked as correct
@@ -191,11 +219,35 @@ class QuestionController extends Controller
             ])->withInput();
         }
 
-        $question = Question::create([
+        // Prepare explanations - remove empty values
+        $explanations = [];
+        if ($request->has('explanations')) {
+            $rawExplanations = $request->explanations;
+            if (! empty($rawExplanations['correct'])) {
+                $explanations['correct'] = trim($rawExplanations['correct']);
+            }
+            if (! empty($rawExplanations['wrong'])) {
+                $explanations['wrong'] = trim($rawExplanations['wrong']);
+            }
+            for ($i = 1; $i <= 5; $i++) {
+                $key = "option{$i}";
+                if (! empty($rawExplanations[$key])) {
+                    $explanations[$key] = trim($rawExplanations[$key]);
+                }
+            }
+        }
+
+        $questionData = [
             'subject_id' => $request->subject_id,
             'question_text' => $request->question_text,
             'created_by' => Auth::id(),
-        ]);
+        ];
+
+        if (! empty($explanations)) {
+            $questionData['explanations'] = $explanations;
+        }
+
+        $question = Question::create($questionData);
 
         // Create options
         foreach ($request->options as $optionData) {
@@ -259,6 +311,7 @@ class QuestionController extends Controller
                             'is_correct' => $option->is_correct,
                         ];
                     }),
+                    'explanations' => $question->explanations,
                     'state_history' => $question->stateHistory->map(function ($history) {
                         return [
                             'id' => $history->id,
@@ -281,10 +334,42 @@ class QuestionController extends Controller
             'id' => $question->id,
             'subject_id' => $question->subject_id,
             'question_text' => $question->question_text,
+            'state' => $question->state,
+            'assigned_to' => $question->assigned_to,
+            'assigned_to_user' => $question->assignedTo ? [
+                'id' => $question->assignedTo->id,
+                'name' => $question->assignedTo->name,
+            ] : null,
             'subject' => [
                 'id' => $question->subject?->id,
                 'name' => $question->subject?->name,
             ],
+            'tags' => $question->tags->map(function ($tag) {
+                return [
+                    'id' => $tag->id,
+                    'tag_text' => $tag->tag_text,
+                ];
+            }),
+            'options' => $question->options->map(function ($option) {
+                return [
+                    'id' => $option->id,
+                    'option_text' => $option->option_text,
+                    'is_correct' => $option->is_correct,
+                ];
+            }),
+            'state_history' => $question->stateHistory->map(function ($history) {
+                return [
+                    'id' => $history->id,
+                    'from_state' => $history->from_state,
+                    'to_state' => $history->to_state,
+                    'changed_by' => $history->changedBy ? [
+                        'id' => $history->changedBy->id,
+                        'name' => $history->changedBy->name,
+                    ] : null,
+                    'notes' => $history->notes,
+                    'created_at' => $history->created_at->toDateTimeString(),
+                ];
+            }),
         ]);
     }
 
@@ -297,7 +382,25 @@ class QuestionController extends Controller
 
         if ($this->wantsInertiaResponse(request())) {
             return \Inertia\Inertia::render('admin/Questions/Edit', [
-                'question' => $question,
+                'question' => [
+                    'id' => $question->id,
+                    'subject_id' => $question->subject_id,
+                    'question_text' => $question->question_text,
+                    'explanations' => $question->explanations,
+                    'tags' => $question->tags->map(function ($tag) {
+                        return [
+                            'id' => $tag->id,
+                            'tag_text' => $tag->tag_text,
+                        ];
+                    }),
+                    'options' => $question->options->map(function ($option) {
+                        return [
+                            'id' => $option->id,
+                            'option_text' => $option->option_text,
+                            'is_correct' => $option->is_correct,
+                        ];
+                    }),
+                ],
                 'subjects' => Subject::select('id', 'name')->get(),
                 'tags' => Tag::select('id', 'tag_text')->get(),
             ]);
@@ -322,6 +425,14 @@ class QuestionController extends Controller
             'options' => 'required|array|min:1',
             'options.*.option_text' => 'required|string',
             'options.*.is_correct' => 'boolean',
+            'explanations' => 'nullable|array',
+            'explanations.correct' => 'nullable|string',
+            'explanations.wrong' => 'nullable|string',
+            'explanations.option1' => 'nullable|string',
+            'explanations.option2' => 'nullable|string',
+            'explanations.option3' => 'nullable|string',
+            'explanations.option4' => 'nullable|string',
+            'explanations.option5' => 'nullable|string',
         ]);
 
         // Ensure at least one option is marked as correct
@@ -332,8 +443,34 @@ class QuestionController extends Controller
             ])->withInput();
         }
 
+        // Prepare explanations - remove empty values
+        $explanations = [];
+        if ($request->has('explanations')) {
+            $rawExplanations = $request->explanations;
+            if (! empty($rawExplanations['correct'])) {
+                $explanations['correct'] = trim($rawExplanations['correct']);
+            }
+            if (! empty($rawExplanations['wrong'])) {
+                $explanations['wrong'] = trim($rawExplanations['wrong']);
+            }
+            for ($i = 1; $i <= 5; $i++) {
+                $key = "option{$i}";
+                if (! empty($rawExplanations[$key])) {
+                    $explanations[$key] = trim($rawExplanations[$key]);
+                }
+            }
+        }
+
         $question->subject_id = $request->subject_id;
         $question->question_text = $request->question_text;
+
+        // Update explanations - set to null if empty, otherwise set the cleaned array
+        if (empty($explanations)) {
+            $question->explanations = null;
+        } else {
+            $question->explanations = $explanations;
+        }
+
         $question->save();
 
         // Delete existing options and create new ones
@@ -348,9 +485,6 @@ class QuestionController extends Controller
         // Sync tags if provided
         if ($request->has('tag_ids')) {
             $question->tags()->sync($request->tag_ids);
-        } else {
-            // If tag_ids is not provided, clear all tags
-            $question->tags()->sync([]);
         }
 
         // For Inertia requests
@@ -501,6 +635,46 @@ class QuestionController extends Controller
 
         return back()->withErrors([
             'message' => 'Failed to assign question.',
+        ]);
+    }
+
+    /**
+     * Unassign question (self or admin)
+     */
+    public function unassign(Request $request, $id)
+    {
+        $user = $this->user();
+
+        if (! $user) {
+            abort(401, 'Unauthenticated');
+        }
+
+        $question = Question::find($id);
+
+        if (! $question) {
+            abort(404, 'Question not found');
+        }
+
+        $isAdmin = $user->hasRole('admin');
+
+        if (! $question->canBeUnassigned($user->id, $isAdmin)) {
+            return back()->withErrors([
+                'message' => 'You cannot unassign this question.',
+            ]);
+        }
+
+        if ($question->unassign($user->id)) {
+            if ($this->wantsInertiaResponse($request)) {
+                return redirect()
+                    ->route('admin.questions.index')
+                    ->with('success', 'Question unassigned successfully');
+            }
+
+            return response()->json(['success' => 'Question unassigned successfully']);
+        }
+
+        return back()->withErrors([
+            'message' => 'Failed to unassign question.',
         ]);
     }
 

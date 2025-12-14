@@ -1,4 +1,9 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { router } from "@inertiajs/react";
 import { useState } from "react";
@@ -38,13 +43,11 @@ export function ImportQuestionsDialog({ open, onOpenChange }: any) {
 
                 <input
                     type="file"
-                    accept=".xlsx,.xls,.csv"
+                    accept=".xlsx"
                     onChange={(e) => setFile(e.target.files?.[0] || null)}
                 />
 
-                {error && (
-                    <p className="mt-2 text-sm text-red-600">{error}</p>
-                )}
+                {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
                 <Button className="mt-4" onClick={submit}>
                     Import

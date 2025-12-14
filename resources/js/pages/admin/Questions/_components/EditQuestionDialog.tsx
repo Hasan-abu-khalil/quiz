@@ -37,6 +37,15 @@ interface Question {
     id: number;
     subject_id: number;
     question_text: string;
+    explanations?: {
+        correct?: string;
+        wrong?: string;
+        option1?: string;
+        option2?: string;
+        option3?: string;
+        option4?: string;
+        option5?: string;
+    };
     tags?: Tag[];
     options?: Option[];
 }
@@ -82,6 +91,15 @@ export function EditQuestionDialog({
         question_text: question?.question_text || "",
         tag_ids: (question?.tags?.map((tag) => tag.id) || []) as number[],
         options: getInitialOptions() as Option[],
+        explanations: question?.explanations || {
+            correct: "",
+            wrong: "",
+            option1: "",
+            option2: "",
+            option3: "",
+            option4: "",
+            option5: "",
+        },
     });
 
     // Update tags when initialTags change (from parent)
@@ -97,6 +115,15 @@ export function EditQuestionDialog({
                 question_text: question.question_text,
                 tag_ids: question.tags?.map((tag) => tag.id) || [],
                 options: getInitialOptions(),
+                explanations: question.explanations || {
+                    correct: "",
+                    wrong: "",
+                    option1: "",
+                    option2: "",
+                    option3: "",
+                    option4: "",
+                    option5: "",
+                },
             });
         }
     }, [question]);
@@ -128,6 +155,15 @@ export function EditQuestionDialog({
                 question_text: question.question_text,
                 tag_ids: question.tags?.map((tag) => tag.id) || [],
                 options: getInitialOptions(),
+                explanations: question.explanations || {
+                    correct: "",
+                    wrong: "",
+                    option1: "",
+                    option2: "",
+                    option3: "",
+                    option4: "",
+                    option5: "",
+                },
             });
         }
         form.clearErrors();
@@ -329,6 +365,94 @@ export function EditQuestionDialog({
                     )}
                 </div>
                 <InputError message={form.errors.tag_ids} />
+            </div>
+            <div className="grid gap-4">
+                <Label className="text-base font-semibold">
+                    Explanations (Optional)
+                </Label>
+                <div className="grid gap-4">
+                    <div>
+                        <Label
+                            htmlFor="explanation-correct"
+                            className="text-sm"
+                        >
+                            Correct Answer Explanation
+                        </Label>
+                        <Textarea
+                            id="explanation-correct"
+                            value={form.data.explanations.correct || ""}
+                            onChange={(e) =>
+                                form.setData("explanations", {
+                                    ...form.data.explanations,
+                                    correct: e.target.value,
+                                })
+                            }
+                            rows={3}
+                            placeholder="Explain why the correct answer is right..."
+                            className="mt-1"
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor="explanation-wrong" className="text-sm">
+                            Wrong Answer Fallback (Optional)
+                        </Label>
+                        <Textarea
+                            id="explanation-wrong"
+                            value={form.data.explanations.wrong || ""}
+                            onChange={(e) =>
+                                form.setData("explanations", {
+                                    ...form.data.explanations,
+                                    wrong: e.target.value,
+                                })
+                            }
+                            rows={2}
+                            placeholder="General explanation for wrong answers (used if specific option explanation is not provided)..."
+                            className="mt-1"
+                        />
+                    </div>
+                    <div className="grid gap-3">
+                        <Label className="text-sm font-medium">
+                            Option-Specific Explanations (Optional)
+                        </Label>
+                        {form.data.options.map((option, index) => (
+                            <div key={index}>
+                                <Label
+                                    htmlFor={`explanation-option-${index + 1}`}
+                                    className="text-xs text-muted-foreground"
+                                >
+                                    Explanation for Option {index + 1}
+                                    {option.is_correct && (
+                                        <span className="ml-1 text-green-600">
+                                            (Correct)
+                                        </span>
+                                    )}
+                                </Label>
+                                <Textarea
+                                    id={`explanation-option-${index + 1}`}
+                                    value={
+                                        form.data.explanations[
+                                            `option${
+                                                index + 1
+                                            }` as keyof typeof form.data.explanations
+                                        ] || ""
+                                    }
+                                    onChange={(e) =>
+                                        form.setData("explanations", {
+                                            ...form.data.explanations,
+                                            [`option${index + 1}`]:
+                                                e.target.value,
+                                        })
+                                    }
+                                    rows={2}
+                                    placeholder={`Why option ${index + 1} is ${
+                                        option.is_correct ? "correct" : "wrong"
+                                    }...`}
+                                    className="mt-1"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
             <QuickCreateTagDialog
                 open={quickCreateTagOpen}

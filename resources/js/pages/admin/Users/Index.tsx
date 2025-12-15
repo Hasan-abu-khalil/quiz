@@ -11,16 +11,21 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Plus, Eye, Trash2 } from "lucide-react";
+import { Plus, Eye, Trash2, Pencil } from "lucide-react";
 import { CreateUserDialog } from "./_components/CreateUserDialog";
 import { ViewUserDialog } from "./_components/ViewUserDialog";
 import { DeleteUserDialog } from "./_components/DeleteUserDialog";
+import { EditUserRoleDialog } from "./_components/EditUserRoleDialog";
 
 interface User {
     id: number;
     name: string;
     email: string;
     roles: Array<{ id: number; name: string }>;
+}
+interface Role {
+    id: number;
+    name: string;
 }
 
 interface Props {
@@ -30,6 +35,7 @@ interface Props {
         last_page: number;
         prev_page_url: string | null;
         next_page_url: string | null;
+        roles: Role[];
     };
 }
 
@@ -62,6 +68,10 @@ export default function Index({ users, filters }: any) {
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [editRoleOpen, setEditRoleOpen] = useState(false);
+    const [selectedUserForRole, setSelectedUserForRole] = useState<User | null>(
+        null
+    );
 
     const handleView = (user: User) => {
         setSelectedUser(user);
@@ -151,6 +161,21 @@ export default function Index({ users, filters }: any) {
                                                         }
                                                     >
                                                         <Eye className="h-4 w-4" />
+                                                    </Button>
+
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setSelectedUserForRole(
+                                                                user
+                                                            );
+                                                            setEditRoleOpen(
+                                                                true
+                                                            );
+                                                        }}
+                                                    >
+                                                        <Pencil className="h-4 w-4" />
                                                     </Button>
                                                     {!user.roles.some(
                                                         (role) =>
@@ -247,8 +272,7 @@ export default function Index({ users, filters }: any) {
                                                     )
                                                 }
                                                 className={`px-3 py-1 rounded border text-sm ${
-                                                    users.current_page ===
-                                                    page
+                                                    users.current_page === page
                                                         ? "bg-blue-600 text-white"
                                                         : "hover:bg-gray-100"
                                                 }`}
@@ -276,6 +300,11 @@ export default function Index({ users, filters }: any) {
                 </Card>
 
                 {/* Page-specific dialogs */}
+                <EditUserRoleDialog
+                    open={editRoleOpen}
+                    onOpenChange={setEditRoleOpen}
+                    user={selectedUserForRole}
+                />
                 <CreateUserDialog
                     open={createDialogOpen}
                     onOpenChange={setCreateDialogOpen}

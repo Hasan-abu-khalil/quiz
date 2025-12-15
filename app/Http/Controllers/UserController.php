@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -19,7 +20,7 @@ class UserController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%");
-                    
+
             });
         }
 
@@ -61,6 +62,21 @@ class UserController extends Controller
     // <a href="javascript:void(0)" class="edit-user btn btn-primary btn-action" data-id="' . $row->id . '" data-toggle="tooltip" title="Edit">
     //     <i class="fas fa-pencil-alt"></i>
     // </a>
+
+
+    public function updateRole(Request $request, User $user)
+    {
+        $request->validate([
+            'role' => 'required|in:teacher,student',
+        ]);
+
+        $role = Role::where('name', $request->role)->firstOrFail();
+
+        $user->roles()->sync([$role->id]);
+
+        return back()->with('success', 'Role updated successfully.');
+    }
+
     public function create(Request $request)
     {
         $request->validate([

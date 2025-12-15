@@ -360,8 +360,8 @@
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                             @if(auth()->check() && (auth()->user()->hasRole('admin') || auth()->user()->hasRole('teacher')))
                                 <li>
-                                    <a class="dropdown-item" href="{{ route('admin.users.index') }}">
-                                        Admin/ Dashboard
+                                    <a class="dropdown-item" href="{{ route('admin.dashboard') }}">
+                                         Dashboard
                                     </a>
                                 </li>
                             @endif

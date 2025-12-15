@@ -103,7 +103,7 @@ export function CreateQuizDialog({
             .then((data) => {
                 setFilteredQuestions(data);
                 // reset selected questions
-                form.setData("questions", [{ question_id: "", order: "" }]);
+                form.setData("questions", [{ question_id: "", order: 1 }]);
             });
     }, [form.data.subject_id]);
 

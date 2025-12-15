@@ -23,6 +23,8 @@ Route::get('/admin', function () {
 
 // Admin-only routes - Users management
 Route::middleware(['auth', 'can.access'])->group(function () {
+    Route::put('/admin/users/{user}/role', [UserController::class, 'updateRole'])
+        ->name('admin.users.role');
     Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users.index');
     Route::get('/admin/users/{id}', [UserController::class, 'show'])->name('admin.users.show');
     Route::post('/admin/users', [UserController::class, 'create'])->name('admin.users.create');

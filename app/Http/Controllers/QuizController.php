@@ -293,4 +293,23 @@ class QuizController extends Controller
         // Legacy JSON response
         return response()->json(['success' => 'Quiz deleted successfully']);
     }
+
+    public function bulkDestroy(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'required|integer|exists:quizzes,id',
+        ]);
+
+        $ids = $request->ids;
+        $deleted = Quiz::whereIn('id', $ids)->delete();
+
+        if ($this->wantsInertiaResponse($request)) {
+            return redirect()
+                ->route('admin.quizzes.index')
+                ->with('success', "{$deleted} quiz(zes) deleted successfully");
+        }
+
+        return response()->json(['success' => "{$deleted} quiz(zes) deleted successfully"]);
+    }
 }

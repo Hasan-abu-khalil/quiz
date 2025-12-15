@@ -12,6 +12,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Plus, Eye, Pencil, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CreateTagDialog } from "./_components/CreateTagDialog";
 import { ViewTagDialog } from "./_components/ViewTagDialog";
 import { EditTagDialog } from "./_components/EditTagDialog";
@@ -29,10 +30,17 @@ interface Props {
         last_page: number;
         prev_page_url: string | null;
         next_page_url: string | null;
+        total?: number;
+        per_page?: number;
+        from?: number;
+        to?: number;
+    };
+    filters: {
+        search?: string;
     };
 }
 
-export default function Index({ tags, filters }: any) {
+export default function Index({ tags, filters }: Props) {
     const [search, setSearch] = useState(filters.search || "");
     const [isMounted, setIsMounted] = useState(false);
 
@@ -58,6 +66,7 @@ export default function Index({ tags, filters }: any) {
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedTag, setSelectedTag] = useState<Tag | null>(null);
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
     const handleView = (tag: Tag) => {
         setSelectedTag(tag);
@@ -72,6 +81,45 @@ export default function Index({ tags, filters }: any) {
     const handleDelete = (tag: Tag) => {
         setSelectedTag(tag);
         setDeleteDialogOpen(true);
+    };
+
+    const toggleSelect = (id: number) => {
+        setSelectedIds((prev) => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === tags.data.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(tags.data.map((t: Tag) => t.id)));
+        }
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) return;
+
+        if (
+            confirm(
+                `Are you sure you want to delete ${selectedIds.size} tag(s)?`
+            )
+        ) {
+            router.delete(route("admin.tags.bulkDestroy"), {
+                data: { ids: Array.from(selectedIds) },
+                preserveScroll: true,
+                onSuccess: () => {
+                    setSelectedIds(new Set());
+                    router.reload({ only: ["tags"] });
+                },
+            });
+        }
     };
 
     const goToPage = (url: string | null) => {
@@ -91,10 +139,28 @@ export default function Index({ tags, filters }: any) {
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <CardTitle>Tags</CardTitle>
-                            <Button onClick={() => setCreateDialogOpen(true)}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Add Tag
-                            </Button>
+                            <div className="flex items-center gap-4">
+                                {selectedIds.size > 0 && (
+                                    <>
+                                        <span className="text-sm text-muted-foreground">
+                                            {selectedIds.size} selected
+                                        </span>
+                                        <Button
+                                            variant="destructive"
+                                            onClick={handleBulkDelete}
+                                        >
+                                            <Trash2 className="h-4 w-4 mr-1" />
+                                            Delete Selected
+                                        </Button>
+                                    </>
+                                )}
+                                <Button
+                                    onClick={() => setCreateDialogOpen(true)}
+                                >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Add Tag
+                                </Button>
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -112,6 +178,16 @@ export default function Index({ tags, filters }: any) {
                         <Table>
                             <TableHeader>
                                 <TableRow>
+                                    <TableHead className="w-12">
+                                        <Checkbox
+                                            checked={
+                                                tags.data.length > 0 &&
+                                                selectedIds.size ===
+                                                    tags.data.length
+                                            }
+                                            onCheckedChange={toggleSelectAll}
+                                        />
+                                    </TableHead>
                                     <TableHead>ID</TableHead>
                                     <TableHead>Tag Text</TableHead>
                                     <TableHead className="text-right">
@@ -122,6 +198,7 @@ export default function Index({ tags, filters }: any) {
                             <TableBody>
                                 {tags.data.length === 0 ? (
                                     <TableRow>
+                                        <TableCell className="w-12"></TableCell>
                                         <TableCell
                                             colSpan={3}
                                             className="text-center"
@@ -132,6 +209,16 @@ export default function Index({ tags, filters }: any) {
                                 ) : (
                                     tags.data.map((tag) => (
                                         <TableRow key={tag.id}>
+                                            <TableCell className="w-12">
+                                                <Checkbox
+                                                    checked={selectedIds.has(
+                                                        tag.id
+                                                    )}
+                                                    onCheckedChange={() =>
+                                                        toggleSelect(tag.id)
+                                                    }
+                                                />
+                                            </TableCell>
                                             <TableCell>{tag.id}</TableCell>
                                             <TableCell>
                                                 {tag.tag_text}
@@ -181,9 +268,7 @@ export default function Index({ tags, filters }: any) {
                                     variant="outline"
                                     size="sm"
                                     disabled={!tags.prev_page_url}
-                                    onClick={() =>
-                                        goToPage(tags.prev_page_url)
-                                    }
+                                    onClick={() => goToPage(tags.prev_page_url)}
                                 >
                                     Prev
                                 </Button>
@@ -244,8 +329,7 @@ export default function Index({ tags, filters }: any) {
                                                     )
                                                 }
                                                 className={`px-3 py-1 rounded border text-sm ${
-                                                    tags.current_page ===
-                                                    page
+                                                    tags.current_page === page
                                                         ? "bg-blue-600 text-white"
                                                         : "hover:bg-gray-100"
                                                 }`}
@@ -261,14 +345,17 @@ export default function Index({ tags, filters }: any) {
                                     variant="outline"
                                     size="sm"
                                     disabled={!tags.next_page_url}
-                                    onClick={() =>
-                                        goToPage(tags.next_page_url)
-                                    }
+                                    onClick={() => goToPage(tags.next_page_url)}
                                 >
                                     Next
                                 </Button>
                             </div>
                         </div>
+                        {tags && (
+                            <div className="text-center mt-4 text-sm text-muted-foreground">
+                                Total: {tags.total || tags.data.length} tag(s)
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 

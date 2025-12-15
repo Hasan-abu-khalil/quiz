@@ -13,12 +13,14 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Plus, Eye, Pencil, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CreateQuizDialog } from "./_components/CreateQuizDialog";
 import { ViewQuizDialog } from "./_components/ViewQuizDialog";
 import { EditQuizDialog } from "./_components/EditQuizDialog";
 import { DeleteQuizDialog } from "./_components/DeleteQuizDialog";
 import axios from "axios";
 import { toast } from "sonner";
+import { Question } from "../Questions/Index";
 interface Subject {
     id: number;
     name: string;
@@ -41,8 +43,16 @@ interface Props {
         last_page: number;
         prev_page_url: string | null;
         next_page_url: string | null;
+        total?: number;
+        per_page?: number;
+        from?: number;
+        to?: number;
     };
     subjects: Subject[];
+    filters: {
+        search?: string;
+    };
+    questions: Question[];
 }
 
 const formatMode = (mode: string) => {
@@ -54,7 +64,12 @@ const formatMode = (mode: string) => {
     return modeMap[mode] || mode;
 };
 
-export default function Index({ quizzes, subjects, questions, filters }: any) {
+export default function Index({
+    quizzes,
+    subjects,
+    questions,
+    filters,
+}: Props) {
     const [search, setSearch] = useState(filters.search || "");
     const [isMounted, setIsMounted] = useState(false);
 
@@ -80,6 +95,7 @@ export default function Index({ quizzes, subjects, questions, filters }: any) {
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
     const handleView = async (quiz: Quiz) => {
         const response = await axios.get(`/admin/quizzes/${quiz.id}`);
@@ -103,6 +119,45 @@ export default function Index({ quizzes, subjects, questions, filters }: any) {
         setDeleteDialogOpen(true);
     };
 
+    const toggleSelect = (id: number) => {
+        setSelectedIds((prev) => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === quizzes.data.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(quizzes.data.map((q: Quiz) => q.id)));
+        }
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) return;
+
+        if (
+            confirm(
+                `Are you sure you want to delete ${selectedIds.size} quiz(zes)?`
+            )
+        ) {
+            router.delete(route("admin.quizzes.bulkDestroy"), {
+                data: { ids: Array.from(selectedIds) },
+                preserveScroll: true,
+                onSuccess: () => {
+                    setSelectedIds(new Set());
+                    router.reload({ only: ["quizzes"] });
+                },
+            });
+        }
+    };
+
     const goToPage = (url: string | null) => {
         if (url) router.get(url);
     };
@@ -120,10 +175,28 @@ export default function Index({ quizzes, subjects, questions, filters }: any) {
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <CardTitle>Quizzes</CardTitle>
-                            <Button onClick={() => setCreateDialogOpen(true)}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Add Quiz
-                            </Button>
+                            <div className="flex items-center gap-4">
+                                {selectedIds.size > 0 && (
+                                    <>
+                                        <span className="text-sm text-muted-foreground">
+                                            {selectedIds.size} selected
+                                        </span>
+                                        <Button
+                                            variant="destructive"
+                                            onClick={handleBulkDelete}
+                                        >
+                                            <Trash2 className="h-4 w-4 mr-1" />
+                                            Delete Selected
+                                        </Button>
+                                    </>
+                                )}
+                                <Button
+                                    onClick={() => setCreateDialogOpen(true)}
+                                >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Add Quiz
+                                </Button>
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -141,6 +214,16 @@ export default function Index({ quizzes, subjects, questions, filters }: any) {
                         <Table>
                             <TableHeader>
                                 <TableRow>
+                                    <TableHead className="w-12">
+                                        <Checkbox
+                                            checked={
+                                                quizzes.data.length > 0 &&
+                                                selectedIds.size ===
+                                                    quizzes.data.length
+                                            }
+                                            onCheckedChange={toggleSelectAll}
+                                        />
+                                    </TableHead>
                                     <TableHead>ID</TableHead>
                                     <TableHead>Title</TableHead>
                                     <TableHead>Subject</TableHead>
@@ -155,6 +238,7 @@ export default function Index({ quizzes, subjects, questions, filters }: any) {
                             <TableBody>
                                 {quizzes.data.length === 0 ? (
                                     <TableRow>
+                                        <TableCell className="w-12"></TableCell>
                                         <TableCell
                                             colSpan={7}
                                             className="text-center"
@@ -165,6 +249,16 @@ export default function Index({ quizzes, subjects, questions, filters }: any) {
                                 ) : (
                                     quizzes.data.map((quiz) => (
                                         <TableRow key={quiz.id}>
+                                            <TableCell className="w-12">
+                                                <Checkbox
+                                                    checked={selectedIds.has(
+                                                        quiz.id
+                                                    )}
+                                                    onCheckedChange={() =>
+                                                        toggleSelect(quiz.id)
+                                                    }
+                                                />
+                                            </TableCell>
                                             <TableCell>{quiz.id}</TableCell>
                                             <TableCell>{quiz.title}</TableCell>
                                             <TableCell>
@@ -314,6 +408,12 @@ export default function Index({ quizzes, subjects, questions, filters }: any) {
                                 </Button>
                             </div>
                         </div>
+                        {quizzes && (
+                            <div className="text-center mt-4 text-sm text-muted-foreground">
+                                Total: {quizzes.total || quizzes.data.length}{" "}
+                                quiz(zes)
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 

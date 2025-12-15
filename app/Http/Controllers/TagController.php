@@ -12,13 +12,11 @@ class TagController extends Controller
     {
         $query = Tag::query();
 
-        
-        if ($request->has('search') && !empty($request->search)) {
+        if ($request->has('search') && ! empty($request->search)) {
             $search = $request->search;
             $query->where('tag_text', 'like', "%{$search}%");
         }
 
-        
         $tags = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
 
         // For Inertia response
@@ -38,13 +36,13 @@ class TagController extends Controller
                 ->addColumn('action', function ($row) {
                     return '
                     <div class="d-grid gap-2 d-md-block">
-                    <a href="javascript:void(0)" class="btn btn-info view" data-id="' . $row->id . '" data-toggle="tooltip" title="View">View</a>
+                    <a href="javascript:void(0)" class="btn btn-info view" data-id="'.$row->id.'" data-toggle="tooltip" title="View">View</a>
 
-                     <a href="javascript:void(0)" class="edit-Tag btn btn-primary btn-action" data-id="' . $row->id . '" data-toggle="tooltip" title="Edit">
+                     <a href="javascript:void(0)" class="edit-Tag btn btn-primary btn-action" data-id="'.$row->id.'" data-toggle="tooltip" title="Edit">
                       <i class="fas fa-pencil-alt"></i>
                      </a>
 
-                    <a href="javascript:void(0)" class="delete-Tag btn btn-danger" data-id="' . $row->id . '" data-toggle="tooltip" title="Delete">
+                    <a href="javascript:void(0)" class="delete-Tag btn btn-danger" data-id="'.$row->id.'" data-toggle="tooltip" title="Delete">
                       <i class="fas fa-trash"></i>
                       </a>
                      </div>';
@@ -96,7 +94,7 @@ class TagController extends Controller
     {
         $tag = Tag::with('questions')->find($id);
 
-        if (!$tag) {
+        if (! $tag) {
             abort(404, 'Tag not found');
         }
 
@@ -131,7 +129,7 @@ class TagController extends Controller
     {
         $tag = Tag::find($id);
 
-        if (!$tag) {
+        if (! $tag) {
             abort(404, 'Tag not found');
         }
 
@@ -157,7 +155,7 @@ class TagController extends Controller
     {
         $tag = Tag::find($id);
 
-        if (!$tag) {
+        if (! $tag) {
             abort(404, 'Tag not found');
         }
 
@@ -172,5 +170,24 @@ class TagController extends Controller
 
         // Legacy JSON response
         return response()->json(['success' => 'Tag deleted successfully']);
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'required|integer|exists:tags,id',
+        ]);
+
+        $ids = $request->ids;
+        $deleted = Tag::whereIn('id', $ids)->delete();
+
+        if ($this->wantsInertiaResponse($request)) {
+            return redirect()
+                ->route('admin.tags.index')
+                ->with('success', "{$deleted} tag(s) deleted successfully");
+        }
+
+        return response()->json(['success' => "{$deleted} tag(s) deleted successfully"]);
     }
 }

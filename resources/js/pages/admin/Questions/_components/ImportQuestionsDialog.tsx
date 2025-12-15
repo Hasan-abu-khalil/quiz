@@ -11,6 +11,13 @@ import { useState } from "react";
 export function ImportQuestionsDialog({ open, onOpenChange }: any) {
     const [file, setFile] = useState<File | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleOpenChange = (nextOpen: boolean) => {
+        // Prevent accidental close while uploading
+        if (isSubmitting) return;
+        onOpenChange(nextOpen);
+    };
 
     const submit = () => {
         if (!file) {
@@ -23,6 +30,7 @@ export function ImportQuestionsDialog({ open, onOpenChange }: any) {
 
         router.post("/admin/questions/import", formData, {
             forceFormData: true,
+            onStart: () => setIsSubmitting(true),
             onSuccess: () => {
                 onOpenChange(false);
                 setError(null);
@@ -31,12 +39,21 @@ export function ImportQuestionsDialog({ open, onOpenChange }: any) {
                 // Laravel validation errors come in `errors.file`
                 setError(errors.file || "Failed to import the file.");
             },
+            onFinish: () => setIsSubmitting(false),
         });
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+            <DialogContent
+                // Block closing via escape or outside click while uploading
+                onEscapeKeyDown={(event) => {
+                    if (isSubmitting) event.preventDefault();
+                }}
+                onPointerDownOutside={(event) => {
+                    if (isSubmitting) event.preventDefault();
+                }}
+            >
                 <DialogHeader>
                     <DialogTitle>Import Questions from Excel</DialogTitle>
                 </DialogHeader>
@@ -45,12 +62,17 @@ export function ImportQuestionsDialog({ open, onOpenChange }: any) {
                     type="file"
                     accept=".xlsx"
                     onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    disabled={isSubmitting}
                 />
 
                 {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
-                <Button className="mt-4" onClick={submit}>
-                    Import
+                <Button
+                    className="mt-4"
+                    onClick={submit}
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? "Uploading..." : "Import"}
                 </Button>
             </DialogContent>
         </Dialog>

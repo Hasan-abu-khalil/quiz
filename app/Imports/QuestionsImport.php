@@ -107,16 +107,15 @@ class QuestionsSheetImport implements ToCollection, WithEvents, WithHeadingRow
             ];
 
             // Correct answer (a–e)
-            $correctRaw = strtolower(trim((string) ($row['correct_answer'] ?? '')));
-            // Extract just the letter (a, b, c, d, e) from the value
-            $correctRaw = preg_replace('/[^a-e]/', '', $correctRaw);
+            $correctRaw = trim((string) ($row['correct_answer'] ?? ''));
+            // Extract just the letter (A, B, C, D, E) from the value
 
             $map = [
-                'a' => 0,
-                'b' => 1,
-                'c' => 2,
-                'd' => 3,
-                'e' => 4,
+                'A' => 0,
+                'B' => 1,
+                'C' => 2,
+                'D' => 3,
+                'E' => 4,
             ];
 
             $correctIndex = $map[$correctRaw] ?? null;

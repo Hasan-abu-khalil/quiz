@@ -42,7 +42,6 @@ class AuthController extends Controller
         $validated = $request->validate([
             'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'string', 'min:6', 'max:100'],
-            'remember' => ['nullable', 'boolean'],
         ], [
             'email.required' => 'Email is required.',
             'email.email' => 'Please enter a valid email address.',
@@ -54,7 +53,7 @@ class AuthController extends Controller
             'password' => $validated['password'],
         ];
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+        if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
 
             $user = Auth::user();

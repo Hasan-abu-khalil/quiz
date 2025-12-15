@@ -19,6 +19,8 @@ interface Question {
     id: number;
     subject_id: number;
     question_text: string;
+    state?: string;
+    assigned_to?: number;
     explanations?: {
         correct?: string;
         wrong?: string;

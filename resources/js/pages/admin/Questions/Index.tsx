@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     Plus,
     Eye,
@@ -22,8 +23,8 @@ import {
     CheckCircle,
     Clock,
     X,
-    History,
     UserMinus,
+    FileUp,
 } from "lucide-react";
 import { DeleteQuestionDialog } from "./_components/DeleteQuestionDialog";
 import { ImportQuestionsDialog } from "./_components/ImportQuestionsDialog";
@@ -55,7 +56,7 @@ interface StateHistory {
     created_at: string;
 }
 
-interface Question {
+export interface Question {
     id: number;
     subject_id: number;
     question_text: string;
@@ -86,9 +87,12 @@ interface Props {
         last_page: number;
         prev_page_url: string | null;
         next_page_url: string | null;
+        total?: number;
+        per_page?: number;
+        from?: number;
+        to?: number;
     };
     subjects: Subject[];
-    tags: Tag[];
     filters: {
         search?: string;
         tab?: string;
@@ -96,7 +100,7 @@ interface Props {
     };
 }
 
-export default function Index({ questions, subjects, tags, filters }: Props) {
+export default function Index({ questions, subjects, filters }: Props) {
     const { auth } = usePage().props as any;
     const currentUser = auth?.user;
     const [activeTab, setActiveTab] = useState(filters.tab || "all");
@@ -170,47 +174,10 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
         null
     );
     const [importDialogOpen, setImportDialogOpen] = useState(false);
-    const [showHistoryForQuestion, setShowHistoryForQuestion] = useState<
-        number | null
-    >(null);
-    const [questionHistory, setQuestionHistory] = useState<{
-        [key: number]: StateHistory[];
-    }>({});
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
     const handleView = (question: Question) => {
         router.visit(`/admin/questions/${question.id}`);
-    };
-
-    const handleToggleHistory = async (questionId: number) => {
-        if (showHistoryForQuestion === questionId) {
-            setShowHistoryForQuestion(null);
-        } else {
-            setShowHistoryForQuestion(questionId);
-            // Fetch history if not already loaded
-            if (!questionHistory[questionId]) {
-                try {
-                    const response = await fetch(
-                        `/admin/questions/${questionId}`,
-                        {
-                            headers: {
-                                Accept: "application/json",
-                                "X-Requested-With": "XMLHttpRequest",
-                            },
-                            credentials: "same-origin",
-                        }
-                    );
-                    const data = await response.json();
-                    if (data.state_history) {
-                        setQuestionHistory((prev) => ({
-                            ...prev,
-                            [questionId]: data.state_history,
-                        }));
-                    }
-                } catch (error) {
-                    console.error("Failed to fetch question history:", error);
-                }
-            }
-        }
     };
 
     const handleEdit = (question: Question) => {
@@ -270,6 +237,45 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
         );
     };
 
+    const toggleSelect = (id: number) => {
+        setSelectedIds((prev) => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === questions.data.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(questions.data.map((q: Question) => q.id)));
+        }
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) return;
+
+        if (
+            confirm(
+                `Are you sure you want to delete ${selectedIds.size} question(s)?`
+            )
+        ) {
+            router.delete("/admin/questions/bulk", {
+                data: { ids: Array.from(selectedIds) },
+                preserveScroll: true,
+                onSuccess: () => {
+                    setSelectedIds(new Set());
+                    router.reload({ only: ["questions"] });
+                },
+            });
+        }
+    };
+
     const handleUnassign = (questionId: number) => {
         router.post(
             `/admin/questions/${questionId}/unassign`,
@@ -285,105 +291,87 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
 
     const renderQuestionsTable = (questionsData: any) => {
         const showAssignedTo = activeTab !== "my-review";
-        const colSpan = showAssignedTo ? 7 : 6;
+        const colSpan = showAssignedTo ? 8 : 7;
 
         if (!questionsData || questionsData.data.length === 0) {
             return (
                 <TableRow>
-                    <TableCell colSpan={colSpan} className="text-center">
+                    <TableCell className="w-12"></TableCell>
+                    <TableCell colSpan={colSpan - 1} className="text-center">
                         No questions found
                     </TableCell>
                 </TableRow>
             );
         }
 
-        return questionsData.data.flatMap((question: Question) =>
-            [
-                <TableRow key={question.id}>
-                    <TableCell className="w-16">{question.id}</TableCell>
-                    <TableCell className="max-w-md">
-                        <div
-                            className="text-sm overflow-hidden"
-                            style={{
-                                display: "-webkit-box",
-                                WebkitLineClamp: 3,
-                                WebkitBoxOrient: "vertical",
-                            }}
-                        >
-                            {question.question_text}
+        return questionsData.data.map((question: Question) => (
+            <TableRow key={question.id}>
+                <TableCell className="w-12">
+                    <Checkbox
+                        checked={selectedIds.has(question.id)}
+                        onCheckedChange={() => toggleSelect(question.id)}
+                    />
+                </TableCell>
+                <TableCell className="w-16">{question.id}</TableCell>
+                <TableCell className="max-w-md">
+                    <div
+                        className="text-sm overflow-hidden"
+                        style={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: "vertical",
+                        }}
+                    >
+                        {question.question_text}
+                    </div>
+                    {question.tags && question.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                            {question.tags.map((tag) => (
+                                <span
+                                    key={tag.id}
+                                    className="text-xs bg-muted px-2 py-0.5 rounded"
+                                >
+                                    {tag.tag_text}
+                                </span>
+                            ))}
                         </div>
-                        {question.tags && question.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                                {question.tags.map((tag) => (
-                                    <span
-                                        key={tag.id}
-                                        className="text-xs bg-muted px-2 py-0.5 rounded"
-                                    >
-                                        {tag.tag_text}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
+                    )}
+                </TableCell>
+                <TableCell>{question.subject?.name || "N/A"}</TableCell>
+                <TableCell>{question.creator?.name || "N/A"}</TableCell>
+                {showAssignedTo && (
+                    <TableCell>
+                        {question.assignedTo?.name ||
+                            question.assigned_to_user?.name ||
+                            "—"}
                     </TableCell>
-                    <TableCell>{question.subject?.name || "N/A"}</TableCell>
-                    <TableCell>{question.creator?.name || "N/A"}</TableCell>
-                    {showAssignedTo && (
-                        <TableCell>
-                            {question.assignedTo?.name ||
-                                question.assigned_to_user?.name ||
-                                "—"}
-                        </TableCell>
-                    )}
-                    {question.state && (
-                        <TableCell>
-                            <span
-                                className={`text-xs px-2 py-0.5 rounded ${
-                                    question.state === "initial"
-                                        ? "bg-gray-200"
-                                        : question.state === "under-review"
-                                        ? "bg-yellow-200"
-                                        : "bg-green-200"
-                                }`}
-                            >
-                                {question.state === "initial"
-                                    ? "Unassigned"
+                )}
+                {question.state && (
+                    <TableCell>
+                        <span
+                            className={`text-xs px-2 py-0.5 rounded ${
+                                question.state === "initial"
+                                    ? "bg-gray-200"
                                     : question.state === "under-review"
-                                    ? "Under Review"
-                                    : "Done"}
-                            </span>
-                        </TableCell>
-                    )}
-                    <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                            {activeTab === "review" &&
-                                question.state === "initial" && (
-                                    <>
-                                        {question.creator?.id ===
-                                            currentUser?.id && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() =>
-                                                    handleEdit(question)
-                                                }
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
-                                        )}
-                                        <Button
-                                            variant="default"
-                                            size="sm"
-                                            onClick={() =>
-                                                handleAssign(question.id)
-                                            }
-                                        >
-                                            Assign to Me
-                                        </Button>
-                                    </>
-                                )}
-                            {activeTab === "my-review" &&
-                                question.state === "under-review" && (
-                                    <>
+                                    ? "bg-yellow-200"
+                                    : "bg-green-200"
+                            }`}
+                        >
+                            {question.state === "initial"
+                                ? "Unassigned"
+                                : question.state === "under-review"
+                                ? "Under Review"
+                                : "Done"}
+                        </span>
+                    </TableCell>
+                )}
+                <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                        {activeTab === "review" &&
+                            question.state === "initial" && (
+                                <>
+                                    {question.creator?.id ===
+                                        currentUser?.id && (
                                         <Button
                                             variant="outline"
                                             size="sm"
@@ -391,6 +379,87 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
                                         >
                                             <Pencil className="h-4 w-4" />
                                         </Button>
+                                    )}
+                                    <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={() =>
+                                            handleAssign(question.id)
+                                        }
+                                    >
+                                        Assign to Me
+                                    </Button>
+                                </>
+                            )}
+                        {activeTab === "my-review" &&
+                            question.state === "under-review" && (
+                                <>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleEdit(question)}
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                            handleUnassign(question.id)
+                                        }
+                                    >
+                                        <UserMinus className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={() =>
+                                            handleChangeState(
+                                                question.id,
+                                                "done"
+                                            )
+                                        }
+                                    >
+                                        <CheckCircle className="h-4 w-4 mr-1" />
+                                        Mark as Done
+                                    </Button>
+                                </>
+                            )}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleView(question)}
+                        >
+                            <Eye className="h-4 w-4" />
+                        </Button>
+                        {activeTab === "all" && (
+                            <>
+                                {/* Show edit button if:
+                                    - User is admin, OR
+                                    - User created it and it's unassigned, OR
+                                    - User is assigned to it and it's under review */}
+                                {(currentUser?.roles?.includes("admin") ||
+                                    (question.creator?.id === currentUser?.id &&
+                                        question.state === "initial" &&
+                                        !question.assigned_to) ||
+                                    (question.assigned_to === currentUser?.id &&
+                                        question.state === "under-review")) && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleEdit(question)}
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
+                                )}
+                                {/* Show unassign button if:
+                                    - Question is under-review AND
+                                    - (User is assigned to it OR user is admin) */}
+                                {question.state === "under-review" &&
+                                    (question.assigned_to === currentUser?.id ||
+                                        currentUser?.roles?.includes(
+                                            "admin"
+                                        )) && (
                                         <Button
                                             variant="outline"
                                             size="sm"
@@ -400,172 +469,25 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
                                         >
                                             <UserMinus className="h-4 w-4" />
                                         </Button>
-                                        <Button
-                                            variant="default"
-                                            size="sm"
-                                            onClick={() =>
-                                                handleChangeState(
-                                                    question.id,
-                                                    "done"
-                                                )
-                                            }
-                                        >
-                                            <CheckCircle className="h-4 w-4 mr-1" />
-                                            Mark as Done
-                                        </Button>
-                                    </>
-                                )}
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleView(question)}
-                            >
-                                <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleToggleHistory(question.id)}
-                                className={
-                                    showHistoryForQuestion === question.id
-                                        ? "bg-primary text-primary-foreground"
-                                        : ""
-                                }
-                            >
-                                <History className="h-4 w-4" />
-                            </Button>
-                            {activeTab === "all" && (
-                                <>
-                                    {/* Show edit button if:
-                                    - User is admin, OR
-                                    - User created it and it's unassigned, OR
-                                    - User is assigned to it and it's under review */}
-                                    {(currentUser?.roles?.includes("admin") ||
-                                        (question.creator?.id ===
-                                            currentUser?.id &&
-                                            question.state === "initial" &&
-                                            !question.assigned_to) ||
-                                        (question.assigned_to ===
-                                            currentUser?.id &&
-                                            question.state ===
-                                                "under-review")) && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleEdit(question)}
-                                        >
-                                            <Pencil className="h-4 w-4" />
-                                        </Button>
                                     )}
-                                    {/* Show unassign button if:
-                                    - Question is under-review AND
-                                    - (User is assigned to it OR user is admin) */}
-                                    {question.state === "under-review" &&
-                                        (question.assigned_to ===
-                                            currentUser?.id ||
-                                            currentUser?.roles?.includes(
-                                                "admin"
-                                            )) && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() =>
-                                                    handleUnassign(question.id)
-                                                }
-                                            >
-                                                <UserMinus className="h-4 w-4" />
-                                            </Button>
-                                        )}
-                                    {/* Show delete button only if user created it or is admin */}
-                                    {(currentUser?.roles?.includes("admin") ||
-                                        question.creator?.id ===
-                                            currentUser?.id) && (
-                                        <Button
-                                            variant="destructive"
-                                            size="sm"
-                                            onClick={() =>
-                                                handleDelete(question)
-                                            }
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    </TableCell>
-                </TableRow>,
-                showHistoryForQuestion === question.id && (
-                    <TableRow key={`${question.id}-history`}>
-                        <TableCell colSpan={colSpan} className="p-0">
-                            <div className="max-h-64 overflow-y-auto border-t bg-muted/50 p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                    <h4 className="font-semibold text-sm">
-                                        Status History
-                                    </h4>
+                                {/* Show delete button only if user created it or is admin */}
+                                {(currentUser?.roles?.includes("admin") ||
+                                    question.creator?.id ===
+                                        currentUser?.id) && (
                                     <Button
-                                        variant="ghost"
+                                        variant="destructive"
                                         size="sm"
-                                        onClick={() =>
-                                            setShowHistoryForQuestion(null)
-                                        }
+                                        onClick={() => handleDelete(question)}
                                     >
-                                        <X className="h-4 w-4" />
+                                        <Trash2 className="h-4 w-4" />
                                     </Button>
-                                </div>
-                                {questionHistory[question.id] &&
-                                questionHistory[question.id].length > 0 ? (
-                                    <div className="space-y-3">
-                                        {questionHistory[question.id].map(
-                                            (history) => (
-                                                <div
-                                                    key={history.id}
-                                                    className="border-l-2 border-primary pl-3 pb-3"
-                                                >
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-xs font-medium">
-                                                                {history.from_state
-                                                                    ? `${history.from_state} → ${history.to_state}`
-                                                                    : `Created → ${history.to_state}`}
-                                                            </span>
-                                                        </div>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            {new Date(
-                                                                history.created_at
-                                                            ).toLocaleString()}
-                                                        </span>
-                                                    </div>
-                                                    {history.changed_by && (
-                                                        <p className="text-xs text-muted-foreground mb-1">
-                                                            Changed by:{" "}
-                                                            {
-                                                                history
-                                                                    .changed_by
-                                                                    .name
-                                                            }
-                                                        </p>
-                                                    )}
-                                                    {history.notes && (
-                                                        <p className="text-xs text-muted-foreground mt-1">
-                                                            {history.notes}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )
-                                        )}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">
-                                        Loading history...
-                                    </p>
                                 )}
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                ),
-            ].filter(Boolean)
-        );
+                            </>
+                        )}
+                    </div>
+                </TableCell>
+            </TableRow>
+        ));
     };
 
     return (
@@ -581,20 +503,34 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
                     <CardHeader>
                         <div className="flex items-center justify-between">
                             <CardTitle>Questions</CardTitle>
-                            <div>
+                            <div className="flex items-center gap-4">
+                                {selectedIds.size > 0 && (
+                                    <>
+                                        <span className="text-sm text-muted-foreground">
+                                            {selectedIds.size} selected
+                                        </span>
+                                        <Button
+                                            variant="destructive"
+                                            onClick={handleBulkDelete}
+                                        >
+                                            <Trash2 className="h-4 w-4 mr-1" />
+                                            Delete Selected
+                                        </Button>
+                                    </>
+                                )}
                                 <Button
                                     onClick={() =>
                                         router.visit("/admin/questions/create")
                                     }
                                 >
-                                    <Plus className="mr-2 h-4 w-4" />
+                                    <Plus className="mr-2" />
                                     Add Question
                                 </Button>
                                 <Button
                                     variant="outline"
                                     onClick={() => setImportDialogOpen(true)}
-                                    className="mx-3"
                                 >
+                                    <FileUp className="h-4 w-4 mr-1" />
                                     Import Excel
                                 </Button>
                             </div>
@@ -672,6 +608,20 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
+                                            <TableHead className="w-12">
+                                                <Checkbox
+                                                    checked={
+                                                        questions.data.length >
+                                                            0 &&
+                                                        selectedIds.size ===
+                                                            questions.data
+                                                                .length
+                                                    }
+                                                    onCheckedChange={
+                                                        toggleSelectAll
+                                                    }
+                                                />
+                                            </TableHead>
                                             <TableHead className="w-16">
                                                 ID
                                             </TableHead>
@@ -794,12 +744,34 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
                                         </div>
                                     </div>
                                 )}
+                                {questions && (
+                                    <div className="text-center mt-4 text-sm text-muted-foreground">
+                                        Total:{" "}
+                                        {questions.total ||
+                                            questions.data.length}{" "}
+                                        question(s)
+                                    </div>
+                                )}
                             </TabsContent>
 
                             <TabsContent value="review">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
+                                            <TableHead className="w-12">
+                                                <Checkbox
+                                                    checked={
+                                                        questions.data.length >
+                                                            0 &&
+                                                        selectedIds.size ===
+                                                            questions.data
+                                                                .length
+                                                    }
+                                                    onCheckedChange={
+                                                        toggleSelectAll
+                                                    }
+                                                />
+                                            </TableHead>
                                             <TableHead className="w-16">
                                                 ID
                                             </TableHead>
@@ -922,12 +894,34 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
                                         </div>
                                     </div>
                                 )}
+                                {questions && (
+                                    <div className="text-center mt-4 text-sm text-muted-foreground">
+                                        Total:{" "}
+                                        {questions.total ||
+                                            questions.data.length}{" "}
+                                        question(s)
+                                    </div>
+                                )}
                             </TabsContent>
 
                             <TabsContent value="my-review">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
+                                            <TableHead className="w-12">
+                                                <Checkbox
+                                                    checked={
+                                                        questions.data.length >
+                                                            0 &&
+                                                        selectedIds.size ===
+                                                            questions.data
+                                                                .length
+                                                    }
+                                                    onCheckedChange={
+                                                        toggleSelectAll
+                                                    }
+                                                />
+                                            </TableHead>
                                             <TableHead className="w-16">
                                                 ID
                                             </TableHead>
@@ -1048,6 +1042,14 @@ export default function Index({ questions, subjects, tags, filters }: Props) {
                                                 Next
                                             </Button>
                                         </div>
+                                    </div>
+                                )}
+                                {questions && (
+                                    <div className="text-center mt-4 text-sm text-muted-foreground">
+                                        Total:{" "}
+                                        {questions.total ||
+                                            questions.data.length}{" "}
+                                        question(s)
                                     </div>
                                 )}
                             </TabsContent>

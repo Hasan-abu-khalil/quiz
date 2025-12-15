@@ -1,4 +1,4 @@
-import { useForm, router } from "@inertiajs/react";
+import { useForm, router, usePage } from "@inertiajs/react";
 import { Label } from "@/components/ui/label";
 import {
     Select,
@@ -36,6 +36,8 @@ interface Question {
     id: number;
     subject_id: number;
     question_text: string;
+    state?: string;
+    assigned_to?: number;
     explanations?: {
         correct?: string;
         wrong?: string;
@@ -61,8 +63,19 @@ export function QuestionForm({
     tags: initialTags,
 }: QuestionFormProps) {
     const isEditMode = !!question;
+    const { auth } = usePage().props as any;
+    const currentUser = auth?.user;
     const [quickCreateTagOpen, setQuickCreateTagOpen] = useState(false);
     const [tags, setTags] = useState(initialTags);
+
+    // Check if user can approve (question is under-review and assigned to user or user is admin)
+    const canApprove =
+        isEditMode &&
+        question &&
+        question.state === "under-review" &&
+        currentUser &&
+        (currentUser.roles?.includes("admin") ||
+            question.assigned_to === currentUser.id);
 
     const getInitialOptions = (): Option[] => {
         if (question?.options && question.options.length > 0) {
@@ -100,19 +113,39 @@ export function QuestionForm({
         setTags(initialTags);
     }, [initialTags]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent, approve: boolean = false) => {
         e.preventDefault();
         if (isEditMode) {
             if (!question) return;
-            form.post(route("admin.questions.update", question.id), {
-                onSuccess: () => {
-                    toast.success("Question updated successfully");
-                    router.visit(route("admin.questions.index"));
-                },
-                onError: () => {
-                    toast.error("Please fix the errors in the form");
-                },
-            });
+
+            // Prepare data with optional approve flag
+            const submitData: any = { ...form.data };
+            if (approve) {
+                submitData.approve = true;
+            }
+
+            // Use router.post directly to have full control over the data
+            router.post(
+                route("admin.questions.update", question.id),
+                submitData,
+                {
+                    onSuccess: () => {
+                        toast.success(
+                            approve
+                                ? "Question updated and approved successfully"
+                                : "Question updated successfully"
+                        );
+                        router.visit(route("admin.questions.index"));
+                    },
+                    onError: (errors) => {
+                        // Set form errors if validation fails
+                        Object.keys(errors).forEach((key) => {
+                            form.setError(key as any, errors[key]);
+                        });
+                        toast.error("Please fix the errors in the form");
+                    },
+                }
+            );
         } else {
             form.post(route("admin.questions.create"), {
                 onSuccess: () => {
@@ -467,13 +500,27 @@ export function QuestionForm({
                     >
                         Reset
                     </Button>
-                    <Button type="submit" disabled={form.processing}>
+                    {canApprove && (
+                        <Button
+                            type="button"
+                            variant="default"
+                            onClick={(e) => handleSubmit(e, true)}
+                            disabled={form.processing}
+                        >
+                            {form.processing ? "Saving..." : "Save and Approve"}
+                        </Button>
+                    )}
+                    <Button
+                        type="submit"
+                        disabled={form.processing}
+                        variant={canApprove ? "outline" : "default"}
+                    >
                         {form.processing
                             ? isEditMode
-                                ? "Updating..."
+                                ? "Saving..."
                                 : "Creating..."
                             : isEditMode
-                            ? "Update Question"
+                            ? "Save as Draft"
                             : "Create Question"}
                     </Button>
                 </div>

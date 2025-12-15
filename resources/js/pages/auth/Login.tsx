@@ -3,7 +3,6 @@ import AuthLayout from "@/layouts/common/AuthLayout";
 import { useForm } from "@inertiajs/react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -19,7 +18,6 @@ export default function Login() {
     const form = useForm({
         email: "",
         password: "",
-        remember: false,
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -84,24 +82,6 @@ export default function Login() {
                                     required
                                 />
                                 <InputError message={form.errors.password} />
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <Checkbox
-                                    id="remember"
-                                    checked={form.data.remember}
-                                    onCheckedChange={(checked) =>
-                                        form.setData(
-                                            "remember",
-                                            checked === true
-                                        )
-                                    }
-                                />
-                                <Label
-                                    htmlFor="remember"
-                                    className="text-sm font-normal cursor-pointer"
-                                >
-                                    Remember me
-                                </Label>
                             </div>
                             <Button
                                 type="submit"

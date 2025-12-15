@@ -386,6 +386,8 @@ class QuestionController extends Controller
                     'id' => $question->id,
                     'subject_id' => $question->subject_id,
                     'question_text' => $question->question_text,
+                    'state' => $question->state,
+                    'assigned_to' => $question->assigned_to,
                     'explanations' => $question->explanations,
                     'tags' => $question->tags->map(function ($tag) {
                         return [
@@ -433,6 +435,7 @@ class QuestionController extends Controller
             'explanations.option3' => 'nullable|string',
             'explanations.option4' => 'nullable|string',
             'explanations.option5' => 'nullable|string',
+            'approve' => 'nullable|boolean',
         ]);
 
         // Ensure at least one option is marked as correct
@@ -487,6 +490,28 @@ class QuestionController extends Controller
             $question->tags()->sync($request->tag_ids);
         }
 
+        // Handle approval if requested
+        if ($request->boolean('approve')) {
+            $user = $this->user();
+            if (! $user) {
+                abort(401, 'Unauthenticated');
+            }
+
+            // Check if user can approve (must be assigned to question or be admin)
+            $canApprove = $user->hasRole('admin') || $question->assigned_to === $user->id;
+
+            if (! $canApprove) {
+                return back()->withErrors([
+                    'message' => 'You do not have permission to approve this question.',
+                ])->withInput();
+            }
+
+            // Only approve if question is in under-review state
+            if ($question->state === Question::STATE_UNDER_REVIEW) {
+                $question->changeState(Question::STATE_DONE, 'Approved after review');
+            }
+        }
+
         // For Inertia requests
         if ($this->wantsInertiaResponse($request)) {
             // Preserve current filters (tab, search, subject_id) when redirecting
@@ -501,9 +526,13 @@ class QuestionController extends Controller
                 $queryParams['subject_id'] = $request->get('subject_id');
             }
 
+            $message = $request->boolean('approve')
+                ? 'Question updated and approved successfully'
+                : 'Question updated successfully';
+
             return redirect()
                 ->route('admin.questions.index', $queryParams)
-                ->with('success', 'Question updated successfully');
+                ->with('success', $message);
         }
 
         // Legacy JSON response
@@ -529,6 +558,25 @@ class QuestionController extends Controller
 
         // Legacy JSON response
         return response()->json(['success' => 'Question deleted successfully']);
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'required|integer|exists:questions,id',
+        ]);
+
+        $ids = $request->ids;
+        $deleted = Question::whereIn('id', $ids)->delete();
+
+        if ($this->wantsInertiaResponse($request)) {
+            return redirect()
+                ->route('admin.questions.index')
+                ->with('success', "{$deleted} question(s) deleted successfully");
+        }
+
+        return response()->json(['success' => "{$deleted} question(s) deleted successfully"]);
     }
 
     /**

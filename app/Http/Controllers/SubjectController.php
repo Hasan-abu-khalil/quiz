@@ -9,15 +9,12 @@ use Yajra\DataTables\DataTables;
 
 class SubjectController extends Controller
 {
-
-
-
     public function index(Request $request)
     {
         $query = Subject::query();
 
         // Search
-        if ($request->has('search') && !empty($request->search)) {
+        if ($request->has('search') && ! empty($request->search)) {
             $search = $request->search;
             $query->where('name', 'like', "%{$search}%");
         }
@@ -29,7 +26,6 @@ class SubjectController extends Controller
             'filters' => $request->only(['search']), // pass the search term to the frontend
         ]);
 
-
         if ($request->ajax()) {
 
             $data = Subject::query();
@@ -39,13 +35,13 @@ class SubjectController extends Controller
                 ->addColumn('action', function ($row) {
                     return '
                     <div class="d-grid gap-2 d-md-block">
-                    <a href="javascript:void(0)" class="btn btn-info  view" data-id="' . $row->id . '" data-toggle="tooltip" title="View">View</a>
+                    <a href="javascript:void(0)" class="btn btn-info view" data-id="'.$row->id.'" data-toggle="tooltip" title="View">View</a>
 
-                     <a href="javascript:void(0)" class="edit-subject btn btn-primary btn-action " data-id="' . $row->id . '" data-toggle="tooltip" title="Edit">
+                     <a href="javascript:void(0)" class="edit-subject btn btn-primary btn-action" data-id="'.$row->id.'" data-toggle="tooltip" title="Edit">
                       <i class="fas fa-pencil-alt"></i>
                      </a>
 
-                    <a href="javascript:void(0)" class="delete-subject btn btn-danger  " data-id="' . $row->id . '" data-toggle="tooltip" title="Delete">
+                    <a href="javascript:void(0)" class="delete-subject btn btn-danger" data-id="'.$row->id.'" data-toggle="tooltip" title="Delete">
                       <i class="fas fa-trash"></i>
                       </a>
                      </div>';
@@ -76,16 +72,16 @@ class SubjectController extends Controller
     public function show(string $id)
     {
         $subject = Subject::find($id);
-        if (!$subject) {
+        if (! $subject) {
             return response()->json(['error' => 'Subject not found'], 404);
         }
-
 
         if (request()->header('X-Inertia')) {
             return Inertia::render('admin/Subjects/Show', [
                 'subject' => $subject,
             ]);
         }
+
         return response()->json($subject);
     }
 
@@ -97,6 +93,7 @@ class SubjectController extends Controller
                 'subject' => $subject,
             ]);
         }
+
         return response()->json($subject);
     }
 
@@ -111,6 +108,7 @@ class SubjectController extends Controller
                 ->route('admin.subjects.index')
                 ->with('success', 'Subject updated successfully');
         }
+
         return response()->json(['success' => 'Subject updated successfully']);
     }
 
@@ -122,7 +120,26 @@ class SubjectController extends Controller
                 ->route('admin.subjects.index')
                 ->with('success', 'Subject deleted successfully');
         }
-        return response()->json(['success' => 'Subject deleted successfully']);
 
+        return response()->json(['success' => 'Subject deleted successfully']);
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'required|integer|exists:subjects,id',
+        ]);
+
+        $ids = $request->ids;
+        $deleted = Subject::whereIn('id', $ids)->delete();
+
+        if ($this->wantsInertiaResponse($request)) {
+            return redirect()
+                ->route('admin.subjects.index')
+                ->with('success', "{$deleted} subject(s) deleted successfully");
+        }
+
+        return response()->json(['success' => "{$deleted} subject(s) deleted successfully"]);
     }
 }

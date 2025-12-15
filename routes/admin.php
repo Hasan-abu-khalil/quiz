@@ -71,6 +71,7 @@ Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
     Route::get('/admin/subjects/{id}/edit', [SubjectController::class, 'edit'])->name('admin.subjects.edit');
     Route::post('/admin/subjects/{id}', [SubjectController::class, 'update'])->name('admin.subjects.update');
     Route::delete('/admin/subjects/{id}', [SubjectController::class, 'destroy'])->name('admin.subjects.destroy');
+    Route::delete('/admin/subjects/bulk', [SubjectController::class, 'bulkDestroy'])->name('admin.subjects.bulkDestroy');
 
     // Question
     Route::post('/admin/questions/import', [QuestionController::class, 'import'])
@@ -83,6 +84,7 @@ Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
     Route::post('/admin/questions/{id}/assign', [QuestionController::class, 'assign'])->name('admin.questions.assign');
     Route::post('/admin/questions/{id}/unassign', [QuestionController::class, 'unassign'])->name('admin.questions.unassign');
     Route::post('/admin/questions/{id}/change-state', [QuestionController::class, 'changeState'])->name('admin.questions.changeState');
+    Route::delete('/admin/questions/bulk', [QuestionController::class, 'bulkDestroy'])->name('admin.questions.bulkDestroy');
     Route::middleware('can.access:question')->group(function () {
         Route::get('/admin/questions/{id}', [QuestionController::class, 'show'])->name('admin.questions.show');
         Route::get('/admin/questions/{id}/edit', [QuestionController::class, 'edit'])->name('admin.questions.edit');
@@ -102,6 +104,7 @@ Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
     // Quiz (admin/teacher)
     Route::get('/admin/quizzes', [QuizController::class, 'index'])->name('admin.quizzes.index');
     Route::post('/admin/quizzes', [QuizController::class, 'create'])->name('admin.quizzes.create');
+    Route::delete('/admin/quizzes/bulk', [QuizController::class, 'bulkDestroy'])->name('admin.quizzes.bulkDestroy');
     Route::middleware('can.access:quiz')->group(function () {
         Route::get('/admin/quizzes/{id}', [QuizController::class, 'show'])->name('admin.quizzes.show');
         Route::get('/admin/quizzes/{id}/edit', [QuizController::class, 'edit'])->name('admin.quizzes.edit');
@@ -150,6 +153,7 @@ Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
     Route::get('/admin/tags/{id}/edit', [TagController::class, 'edit'])->name('admin.tags.edit');
     Route::post('/admin/tags/{id}', [TagController::class, 'update'])->name('admin.tags.update');
     Route::delete('/admin/tags/{id}', [TagController::class, 'destroy'])->name('admin.tags.destroy');
+    Route::delete('/admin/tags/bulk', [TagController::class, 'bulkDestroy'])->name('admin.tags.bulkDestroy');
 
     // QuestionTag
     Route::get('/admin/question-tags', [QuestionTagController::class, 'index'])->name('admin.questionTags.index');

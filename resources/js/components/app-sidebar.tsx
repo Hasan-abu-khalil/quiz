@@ -39,17 +39,18 @@ const mainNavItems = [
                 role: ["admin", "teacher"],
             },
             {
-                title: "Quizzes",
-                href: "/admin/quizzes",
-                icon: BookOpen,
-                role: ["admin", "teacher"],
-            },
-            {
                 title: "Questions",
                 href: "/admin/questions",
                 icon: FileQuestion,
                 role: ["admin", "teacher"],
             },
+            {
+                title: "Quizzes",
+                href: "/admin/quizzes",
+                icon: BookOpen,
+                role: ["admin", "teacher"],
+            },
+
             {
                 title: "Attempts",
                 href: "/admin/attempts",

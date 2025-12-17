@@ -550,6 +550,7 @@ export default function Index({ questions, subjects, filters }: Props) {
                     </CardHeader>
                     <CardContent>
                         <Tabs value={activeTab} onValueChange={handleTabChange}>
+                            <p className="text-sm mb-2 text-slate-500">Set the questions and complete that before adding a new quiz</p>
                             <TabsList className="mb-4">
                                 <TabsTrigger value="all">
                                     All Questions
@@ -562,7 +563,6 @@ export default function Index({ questions, subjects, filters }: Props) {
                                     My Reviews
                                 </TabsTrigger>
                             </TabsList>
-
                             {/* Filters */}
                             <div className="mb-4 space-y-3">
                                 {/* Search */}
@@ -615,7 +615,7 @@ export default function Index({ questions, subjects, filters }: Props) {
                                     ))}
                                 </div>
                             </div>
-
+h1
                             <TabsContent value="all">
                                 <Table>
                                     <TableHeader>

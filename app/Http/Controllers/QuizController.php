@@ -17,11 +17,11 @@ class QuizController extends Controller
         $query = Quiz::with('subject');
 
         // Teachers can only see their own quizzes
-        if ($user && $user->hasRole('teacher') && ! $user->hasRole('admin')) {
+        if ($user && $user->hasRole('teacher') && !$user->hasRole('admin')) {
             $query->where('created_by', $user->id);
         }
 
-        if ($request->has('search') && ! empty($request->search)) {
+        if ($request->has('search') && !empty($request->search)) {
             $search = $request->search;
             $query->where('title', 'like', "%{$search}%");
         }
@@ -60,13 +60,13 @@ class QuizController extends Controller
                 ->addColumn('action', function ($row) {
                     return '
                     <div class="d-grid gap-2 d-md-block">
-                        <a href="javascript:void(0)" class="btn btn-info view" data-id="'.$row->id.'" title="View">View</a>
+                        <a href="javascript:void(0)" class="btn btn-info view" data-id="' . $row->id . '" title="View">View</a>
 
-                        <a href="javascript:void(0)" class="btn btn-primary edit-quiz" data-id="'.$row->id.'" title="Edit">
+                        <a href="javascript:void(0)" class="btn btn-primary edit-quiz" data-id="' . $row->id . '" title="Edit">
                             <i class="fas fa-pencil-alt"></i>
                         </a>
 
-                        <a href="javascript:void(0)" class="btn btn-danger delete-quiz" data-id="'.$row->id.'" title="Delete">
+                        <a href="javascript:void(0)" class="btn btn-danger delete-quiz" data-id="' . $row->id . '" title="Delete">
                             <i class="fas fa-trash"></i>
                         </a>
                     </div>';
@@ -81,6 +81,7 @@ class QuizController extends Controller
         return view('Dashboard/Quiz/quiz', compact('subjects'));
     }
 
+
     public function create(Request $request)
     {
         $request->validate([
@@ -89,7 +90,13 @@ class QuizController extends Controller
             'subject_id' => 'nullable|exists:subjects,id',
             'time_limit_minutes' => 'nullable|integer|min:1',
             'total_questions' => 'nullable|integer|min:1',
-
+            'questions' => [
+                'required',
+                'array',
+                'size:' . $request->total_questions,
+            ],
+            'questions.*.question_id' => 'required|exists:questions,id',
+            'questions.*.order' => 'required|integer|min:1',
         ]);
 
         // Validate that all questions are in "done" state
@@ -100,7 +107,7 @@ class QuizController extends Controller
                 ->pluck('id')
                 ->toArray();
 
-            if (! empty($nonDoneQuestions)) {
+            if (!empty($nonDoneQuestions)) {
                 return back()->withErrors([
                     'questions' => 'Only questions that are marked as done can be added to quizzes.',
                 ])->withInput();
@@ -209,7 +216,7 @@ class QuizController extends Controller
             ->where('id', $questionId)
             ->first();
 
-        if (! $quizQuestion) {
+        if (!$quizQuestion) {
             return response()->json(['error' => 'Question not found'], 404);
         }
 
@@ -232,7 +239,7 @@ class QuizController extends Controller
     {
         $quiz = Quiz::find($id);
 
-        if (! $quiz) {
+        if (!$quiz) {
             return response()->json(['error' => 'Quiz not found'], 404);
         }
 
@@ -243,7 +250,7 @@ class QuizController extends Controller
     {
         $quiz = Quiz::find($id);
 
-        if (! $quiz) {
+        if (!$quiz) {
             abort(404, 'Quiz not found');
         }
 
@@ -277,7 +284,7 @@ class QuizController extends Controller
     {
         $quiz = Quiz::find($id);
 
-        if (! $quiz) {
+        if (!$quiz) {
             abort(404, 'Quiz not found');
         }
 

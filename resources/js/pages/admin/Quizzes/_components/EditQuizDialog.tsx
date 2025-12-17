@@ -94,6 +94,18 @@ export function EditQuizDialog({
         }
     }, [quiz]);
 
+    const maxQuestions = form.data.total_questions
+        ? parseInt(form.data.total_questions, 10)
+        : Infinity;
+
+    const canAddQuestion = (form.data.questions?.length || 0) < maxQuestions;
+
+    const canSubmit =
+        form.data.total_questions && form.data.questions
+            ? form.data.questions.length ===
+              parseInt(form.data.total_questions, 10)
+            : true;
+            
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!quiz) return;
@@ -255,6 +267,17 @@ export function EditQuizDialog({
     const handleAddQuestion = async () => {
         if (!quiz || !newQuestionId) return;
 
+        const max = form.data.total_questions
+            ? parseInt(form.data.total_questions, 10)
+            : Infinity;
+
+        if ((form.data.questions?.length || 0) >= max) {
+            toast.error(
+                `You cannot add more than ${max} questions to this quiz`
+            );
+            return;
+        }
+
         try {
             // Send request to backend to create QuizQuestion
             const response = await axios.post(
@@ -270,7 +293,7 @@ export function EditQuizDialog({
                 form.setData("questions", [
                     ...(form.data.questions || []),
                     {
-                        id: response.data.quiz_question_id, // id returned from backend
+                        id: response.data.quiz_question_id,
                         order: form.data.questions?.length + 1,
                         question: addedQuestion,
                     },
@@ -423,16 +446,29 @@ export function EditQuizDialog({
                     </div>
 
                     <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => onOpenChange(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={form.processing}>
-                            {form.processing ? "Updating..." : "Update Quiz"}
-                        </Button>
+                        {!canSubmit && (
+                            <p className="text-sm text-red-600">
+                                You must add exactly {form.data.total_questions}{" "}
+                                questions before updating the quiz.
+                            </p>
+                        )}
+                        <div className="flex justify-end gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => onOpenChange(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={form.processing || !canSubmit}
+                            >
+                                {form.processing
+                                    ? "Updating..."
+                                    : "Update Quiz"}
+                            </Button>
+                        </div>
                     </DialogFooter>
                 </form>
 
@@ -469,7 +505,7 @@ export function EditQuizDialog({
                         <Button
                             type="button"
                             onClick={handleAddQuestion}
-                            disabled={!newQuestionId}
+                            disabled={!newQuestionId || !canAddQuestion}
                         >
                             Add
                         </Button>

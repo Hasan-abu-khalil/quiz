@@ -47,6 +47,12 @@ export function CreateQuizDialog({
     });
 
     const addRow = () => {
+        const total = parseInt(form.data.total_questions, 10);
+        if (!total || form.data.questions.length >= total) {
+            toast.error(`You cannot add more than ${total || 0} questions`);
+            return;
+        }
+
         form.setData("questions", [
             ...form.data.questions,
             { question_id: "", order: form.data.questions.length + 1 },
@@ -78,6 +84,13 @@ export function CreateQuizDialog({
             toast.error("Please select a question for all rows");
             return;
         }
+        const total = parseInt(form.data.total_questions, 10);
+        if (form.data.questions.length !== total) {
+            toast.error(
+                `Total questions do not match the number of questions added. Added: ${form.data.questions.length}, Expected: ${total}`
+            );
+            return;
+        }
 
         form.post(route("admin.quizzes.create"), {
             preserveScroll: true,
@@ -93,19 +106,38 @@ export function CreateQuizDialog({
     const [filteredQuestions, setFilteredQuestions] =
         React.useState<Question[]>(questions);
     React.useEffect(() => {
-        if (!form.data.subject_id) {
-            setFilteredQuestions(questions); // all questions
+        const total = parseInt(form.data.total_questions, 10);
+        if (!form.data.subject_id || !total) {
+            setFilteredQuestions(questions);
+            form.setData("questions", []);
             return;
         }
 
         fetch(route("admin.questions.bySubject", form.data.subject_id))
-            .then((res) => res.json())
-            .then((data) => {
-                setFilteredQuestions(data);
-                // reset selected questions
-                form.setData("questions", [{ question_id: "", order: 1 }]);
-            });
-    }, [form.data.subject_id]);
+        .then((res) => res.json())
+        .then((data: Question[]) => {
+            if (!data.length) {
+                toast.error(
+                    "This subject has no questions. Please go to the Questions section and assign questions first."
+                );
+                setFilteredQuestions([]);
+                form.setData("questions", []);
+                return;
+            }
+
+            setFilteredQuestions(data);
+
+            // Automatically populate question rows up to the total_questions
+            const rows = Array.from({ length: total }, (_, i) => ({
+                question_id: "",
+                order: i + 1,
+            }));
+            form.setData("questions", rows);
+        })
+        .catch(() => {
+            toast.error("Failed to fetch questions for this subject.");
+        });
+}, [form.data.subject_id, form.data.total_questions]);
 
     return (
         <FormDialog
@@ -203,7 +235,16 @@ export function CreateQuizDialog({
                         <Label className="text-md font-semibold">
                             Quiz Questions
                         </Label>
-                        <Button type="button" size="sm" onClick={addRow}>
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={addRow}
+                            disabled={
+                                !form.data.total_questions ||
+                                form.data.questions.length >=
+                                    parseInt(form.data.total_questions, 10)
+                            }
+                        >
                             + Add Question
                         </Button>
                     </div>

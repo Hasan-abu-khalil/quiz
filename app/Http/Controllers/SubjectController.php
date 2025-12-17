@@ -102,6 +102,9 @@ class SubjectController extends Controller
 
     public function update(Request $request, $id)
     {
+        $request->validate([
+            'name' => 'required|string|unique:subjects,name',
+        ]);
         $subject = Subject::find($id);
         $subject->name = $request->name;
 

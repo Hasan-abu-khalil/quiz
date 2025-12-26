@@ -14,7 +14,6 @@ use App\Http\Controllers\RoleUserController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\UserController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // Admin Dashboard (Inertia React)
@@ -87,11 +86,22 @@ Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
     Route::get('/admin/questions/my-review', [QuestionController::class, 'myReviewIndex'])->name('admin.questions.myReview.index');
     Route::post('/admin/questions/bulk/assign', [QuestionController::class, 'bulkAssign'])->name('admin.questions.bulkAssign');
     Route::post('/admin/questions/bulk/change-state', [QuestionController::class, 'bulkChangeState'])->name('admin.questions.bulkChangeState');
+    Route::delete('/admin/questions/bulk', [QuestionController::class, 'bulkDestroy'])->name('admin.questions.bulkDestroy');
+
+    // Question fetching routes (for quiz creation) - must come before parameterized routes
+    Route::get('/admin/questions/by-subject/{subjectId}', function ($subjectId) {
+        return \App\Models\Question::where('subject_id', $subjectId)
+            ->where('state', \App\Models\Question::STATE_DONE)
+            ->select('id', 'question_text')
+            ->get();
+    })->name('admin.questions.bySubject');
+    Route::get('/admin/questions/by-subjects', [QuestionController::class, 'bySubjects'])
+        ->name('admin.questions.bySubjects');
+
     Route::post('/admin/questions/{id}/assign', [QuestionController::class, 'assign'])->name('admin.questions.assign');
     Route::post('/admin/questions/{id}/unassign', [QuestionController::class, 'unassign'])->name('admin.questions.unassign');
     Route::post('/admin/questions/{id}/change-state', [QuestionController::class, 'changeState'])->name('admin.questions.changeState');
     Route::post('/admin/questions/{id}/reset-to-initial', [QuestionController::class, 'resetToInitial'])->name('admin.questions.resetToInitial');
-    Route::delete('/admin/questions/bulk', [QuestionController::class, 'bulkDestroy'])->name('admin.questions.bulkDestroy');
     Route::middleware('can.access:question')->group(function () {
         Route::get('/admin/questions/{id}', [QuestionController::class, 'show'])->name('admin.questions.show');
         Route::get('/admin/questions/{id}/edit', [QuestionController::class, 'edit'])->name('admin.questions.edit');
@@ -113,28 +123,6 @@ Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
     Route::get('/admin/quizzes/create', [QuizController::class, 'createForm'])->name('admin.quizzes.createForm');
     Route::post('/admin/quizzes', [QuizController::class, 'create'])->name('admin.quizzes.create');
     Route::delete('/admin/quizzes/bulk', [QuizController::class, 'bulkDestroy'])->name('admin.quizzes.bulkDestroy');
-
-    // Question fetching routes (for quiz creation) - no quiz access needed
-    Route::get('/admin/questions/by-subject/{subjectId}', function ($subjectId) {
-        return \App\Models\Question::where('subject_id', $subjectId)
-            ->where('state', \App\Models\Question::STATE_DONE)
-            ->select('id', 'question_text')
-            ->get();
-    })->name('admin.questions.bySubject');
-
-    Route::get('/admin/questions/by-subjects', function (Request $request) {
-        $subjectIds = $request->get('subject_ids', []);
-        if (empty($subjectIds)) {
-            return \App\Models\Question::where('state', \App\Models\Question::STATE_DONE)
-                ->select('id', 'question_text')
-                ->get();
-        }
-
-        return \App\Models\Question::whereIn('subject_id', $subjectIds)
-            ->where('state', \App\Models\Question::STATE_DONE)
-            ->select('id', 'question_text')
-            ->get();
-    })->name('admin.questions.bySubjects');
 
     Route::middleware('can.access:quiz')->group(function () {
         Route::get('/admin/quizzes/{id}', [QuizController::class, 'show'])->name('admin.quizzes.show');

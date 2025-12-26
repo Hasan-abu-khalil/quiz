@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, Search, LoaderCircle } from "lucide-react";
 import { route } from "ziggy-js";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { handleFormErrors } from "@/lib/utils";
 
 interface Subject {
@@ -27,6 +28,11 @@ interface Subject {
 interface Question {
     id: number;
     question_text: string;
+    subject_id?: number;
+    subject?: {
+        id: number;
+        name: string;
+    };
 }
 
 interface Props {
@@ -98,77 +104,76 @@ export default function Create({ subjects, questions }: Props) {
         }
     }, [form.data.subject_id, form.data.mode]);
 
-    // Handle randomize mode - pick random questions when total_questions is set
-    // If no subjects are selected, use all subjects (default behavior)
+    // Handle randomize mode - clear questions when mode changes
     React.useEffect(() => {
-        if (form.data.mode === "mixed_bag" && form.data.total_questions) {
-            const total = parseInt(form.data.total_questions, 10);
-            if (total > 0) {
-                setIsLoadingQuestions(true);
-                // If no subjects selected, fetch all questions (empty query params)
-                // Otherwise, fetch from selected subjects
-                const url =
-                    selectedSubjects.length > 0
-                        ? route("admin.questions.bySubjects") +
-                          `?subject_ids[]=${selectedSubjects.join(
-                              "&subject_ids[]="
-                          )}`
-                        : route("admin.questions.bySubjects");
-
-                fetch(url)
-                    .then((res) => res.json())
-                    .then((data: Question[]) => {
-                        if (!data.length) {
-                            const subjectMsg =
-                                selectedSubjects.length > 0
-                                    ? "Selected subjects have no questions."
-                                    : "No questions available.";
-                            toast.error(subjectMsg);
-                            setFilteredQuestions([]);
-                            form.setData("questions", []);
-                            setIsLoadingQuestions(false);
-                            return;
-                        }
-
-                        setFilteredQuestions(data);
-
-                        // Randomly pick questions
-                        const shuffled = [...data].sort(
-                            () => Math.random() - 0.5
-                        );
-                        const selected = shuffled.slice(
-                            0,
-                            Math.min(total, data.length)
-                        );
-                        const rows = selected.map((q, index) => ({
-                            question_id: String(q.id),
-                            order: index + 1,
-                        }));
-                        form.setData("questions", rows);
-                        const subjectMsg =
-                            selectedSubjects.length > 0
-                                ? `from ${selectedSubjects.length} subject(s)`
-                                : "from all subjects";
-                        toast.success(
-                            `Randomly selected ${rows.length} questions ${subjectMsg}`
-                        );
-                        setIsLoadingQuestions(false);
-                    })
-                    .catch(() => {
-                        toast.error("Failed to fetch questions.");
-                        setIsLoadingQuestions(false);
-                    });
-            } else {
-                setIsLoadingQuestions(false);
-            }
-        } else if (form.data.mode === "mixed_bag") {
+        if (form.data.mode !== "mixed_bag") {
             setFilteredQuestions([]);
             form.setData("questions", []);
-            setIsLoadingQuestions(false);
-        } else {
-            setIsLoadingQuestions(false);
         }
-    }, [form.data.mode, selectedSubjects, form.data.total_questions]);
+    }, [form.data.mode]);
+
+    // Generate random questions handler - backend handles balancing
+    const handleGenerate = () => {
+        const total = parseInt(form.data.total_questions, 10);
+        if (!total || total <= 0) {
+            toast.error(
+                "Please enter a valid number of questions to randomly select"
+            );
+            return;
+        }
+
+        setIsLoadingQuestions(true);
+        // Build URL with subject_ids and total_questions parameters
+        const params = new URLSearchParams();
+        if (selectedSubjects.length > 0) {
+            selectedSubjects.forEach((id) => {
+                params.append("subject_ids[]", String(id));
+            });
+        }
+        params.append("total_questions", String(total));
+
+        const url = `${route(
+            "admin.questions.bySubjects"
+        )}?${params.toString()}`;
+
+        fetch(url)
+            .then((res) => res.json())
+            .then((data: Question[]) => {
+                if (!data.length) {
+                    const subjectMsg =
+                        selectedSubjects.length > 0
+                            ? "Selected subjects have no questions."
+                            : "No questions available.";
+                    toast.error(subjectMsg);
+                    setFilteredQuestions([]);
+                    form.setData("questions", []);
+                    setIsLoadingQuestions(false);
+                    return;
+                }
+
+                setFilteredQuestions(data);
+
+                const rows = data.map((q, index) => ({
+                    question_id: String(q.id),
+                    order: index + 1,
+                }));
+
+                form.setData("questions", rows);
+
+                const subjectMsg =
+                    selectedSubjects.length > 0
+                        ? `from ${selectedSubjects.length} subject(s)`
+                        : "from all subjects";
+                toast.success(
+                    `Randomly selected ${rows.length} questions ${subjectMsg} (balanced distribution)`
+                );
+                setIsLoadingQuestions(false);
+            })
+            .catch(() => {
+                toast.error("Failed to fetch questions.");
+                setIsLoadingQuestions(false);
+            });
+    };
 
     const addRow = () => {
         // Only allow adding rows in by_subject mode
@@ -448,17 +453,45 @@ export default function Create({ subjects, questions }: Props) {
                                         <Label>
                                             Total Questions (to randomly select)
                                         </Label>
-                                        <Input
-                                            type="number"
-                                            value={form.data.total_questions}
-                                            onChange={(e) =>
-                                                form.setData(
-                                                    "total_questions",
-                                                    e.target.value
-                                                )
-                                            }
-                                            placeholder="Enter number of questions to randomly select"
-                                        />
+                                        <div className="flex gap-2">
+                                            <Input
+                                                type="number"
+                                                value={
+                                                    form.data.total_questions
+                                                }
+                                                onChange={(e) =>
+                                                    form.setData(
+                                                        "total_questions",
+                                                        e.target.value
+                                                    )
+                                                }
+                                                placeholder="Enter number of questions to randomly select"
+                                                className="flex-1"
+                                            />
+                                            <Button
+                                                type="button"
+                                                onClick={handleGenerate}
+                                                disabled={
+                                                    !form.data
+                                                        .total_questions ||
+                                                    parseInt(
+                                                        form.data
+                                                            .total_questions,
+                                                        10
+                                                    ) <= 0 ||
+                                                    isLoadingQuestions
+                                                }
+                                            >
+                                                {isLoadingQuestions ? (
+                                                    <>
+                                                        <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                                                        Generating...
+                                                    </>
+                                                ) : (
+                                                    "Generate"
+                                                )}
+                                            </Button>
+                                        </div>
                                         <InputError
                                             message={
                                                 form.errors.total_questions
@@ -647,6 +680,36 @@ export default function Create({ subjects, questions }: Props) {
                                                                             )}
                                                                     </SelectContent>
                                                                 </Select>
+                                                                {form.data
+                                                                    .mode ===
+                                                                    "mixed_bag" &&
+                                                                    q.question_id &&
+                                                                    (() => {
+                                                                        const questionData =
+                                                                            filteredQuestions.find(
+                                                                                (
+                                                                                    ques
+                                                                                ) =>
+                                                                                    String(
+                                                                                        ques.id
+                                                                                    ) ===
+                                                                                    q.question_id
+                                                                            );
+                                                                        return questionData?.subject ? (
+                                                                            <div className="mt-1">
+                                                                                <Badge
+                                                                                    variant="secondary"
+                                                                                    className="text-xs"
+                                                                                >
+                                                                                    {
+                                                                                        questionData
+                                                                                            .subject
+                                                                                            .name
+                                                                                    }
+                                                                                </Badge>
+                                                                            </div>
+                                                                        ) : null;
+                                                                    })()}
                                                                 <InputError
                                                                     message={
                                                                         form

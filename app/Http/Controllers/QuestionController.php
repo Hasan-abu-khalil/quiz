@@ -1087,4 +1087,98 @@ class QuestionController extends Controller
             'message' => 'Failed to reset question. Question must be in done state.',
         ]);
     }
+
+    /**
+     * Get questions by multiple subject IDs (for quiz creation)
+     * If total_questions is provided, returns balanced selection across subjects
+     */
+    public function bySubjects(Request $request)
+    {
+        $subjectIds = $request->get('subject_ids', []);
+        $totalQuestions = $request->get('total_questions');
+
+        // Handle array parameter - Laravel can receive it as array or string
+        if (! is_array($subjectIds)) {
+            // If it's a string, try to parse it
+            if (is_string($subjectIds)) {
+                $subjectIds = [$subjectIds];
+            } else {
+                $subjectIds = [];
+            }
+        }
+
+        // Filter out empty values
+        $subjectIds = array_filter($subjectIds, function ($id) {
+            return ! empty($id);
+        });
+
+        $query = Question::where('state', Question::STATE_DONE)
+            ->with('subject:id,name');
+
+        if (! empty($subjectIds)) {
+            $query->whereIn('subject_id', $subjectIds);
+        }
+
+        $allQuestions = $query->select('id', 'question_text', 'subject_id')->get();
+
+        // If total_questions is provided, return balanced selection
+        if ($totalQuestions && is_numeric($totalQuestions) && $totalQuestions > 0) {
+            $total = (int) $totalQuestions;
+
+            // Determine which subjects to use
+            $subjectsToUse = ! empty($subjectIds)
+                ? $subjectIds
+                : $allQuestions->pluck('subject_id')->filter()->unique()->values()->toArray();
+
+            if (empty($subjectsToUse)) {
+                return response()->json([]);
+            }
+
+            // Group questions by subject
+            $questionsBySubject = [];
+            foreach ($subjectsToUse as $subjectId) {
+                $questionsBySubject[$subjectId] = $allQuestions->filter(function ($q) use ($subjectId) {
+                    return $q->subject_id == $subjectId;
+                })->values();
+            }
+
+            // Calculate questions per subject (balanced distribution)
+            $questionsPerSubject = (int) floor($total / count($subjectsToUse));
+            $remainder = $total % count($subjectsToUse);
+
+            $selected = collect();
+
+            // Distribute questions evenly across subjects
+            foreach ($subjectsToUse as $index => $subjectId) {
+                $available = $questionsBySubject[$subjectId] ?? collect();
+                if ($available->isEmpty()) {
+                    continue;
+                }
+
+                // Add one extra question to first 'remainder' subjects
+                $count = $questionsPerSubject + ($index < $remainder ? 1 : 0);
+                $actualCount = min($count, $available->count());
+
+                // Shuffle and select from this subject
+                $selectedFromSubject = $available->shuffle()->take($actualCount);
+                $selected = $selected->merge($selectedFromSubject);
+            }
+
+            // If we still need more questions (some subjects had fewer than allocated)
+            if ($selected->count() < $total) {
+                $remaining = $allQuestions->filter(function ($q) use ($selected) {
+                    return ! $selected->contains('id', $q->id);
+                })->shuffle()->take($total - $selected->count());
+                $selected = $selected->merge($remaining);
+            }
+
+            // Shuffle final selection and limit to total
+            $finalSelected = $selected->shuffle()->take($total);
+
+            return response()->json($finalSelected->values()->toArray());
+        }
+
+        // Return all questions if no total_questions specified
+        return response()->json($allQuestions->values()->toArray());
+    }
 }

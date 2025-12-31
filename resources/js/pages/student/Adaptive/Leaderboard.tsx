@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { ArrowLeft, Trophy, Medal, Award } from "lucide-react";
 import { route } from "ziggy-js";
+import { RelativeDate } from "@/components/common/RelativeDate";
 
 interface LeaderboardEntry {
     rank: number;
@@ -50,17 +51,6 @@ const getRankIcon = (rank: number) => {
     if (rank === 2) return <Medal className="h-5 w-5 text-slate-400 dark:text-slate-300" />;
     if (rank === 3) return <Award className="h-5 w-5 text-amber-700 dark:text-amber-500" />;
     return null;
-};
-
-const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
 };
 
 export default function Leaderboard({
@@ -188,9 +178,9 @@ export default function Leaderboard({
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell className="text-right text-sm text-muted-foreground">
-                                                        {formatDate(
-                                                            entry.attempted_at
-                                                        )}
+                                                        <RelativeDate
+                                                            date={entry.attempted_at}
+                                                        />
                                                     </TableCell>
                                                 </TableRow>
                                             );

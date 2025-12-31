@@ -16,8 +16,8 @@ class AuthController extends Controller
     public function showLoginForm(Request $request)
     {
         // If already logged in, send to dashboard
-        if (auth()->check()) {
-            $user = auth()->user();
+        $user = $this->user();
+        if ($user) {
             if ($user->hasRole('admin') || $user->hasRole('teacher')) {
                 return redirect()->route('admin.dashboard');
             }
@@ -56,29 +56,24 @@ class AuthController extends Controller
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
 
-            $user = Auth::user();
+            $user = $this->user();
 
-            // Check if this is an Inertia request
-            $isInertiaRequest = $this->wantsInertiaResponse($request);
+            if (! $user) {
+                return back()
+                    ->withErrors(['email' => 'Authentication failed'])
+                    ->withInput();
+            }
 
             if ($user->hasRole('admin')) {
-                // Admin dashboard is Inertia, so regular redirect works
                 return redirect()->route('admin.dashboard');
             }
 
             if ($user->hasRole('teacher')) {
-                // Teacher dashboard is Inertia, so regular redirect works
                 return redirect()->route('admin.dashboard');
             }
 
             // default: student or others
             if ($user->hasRole('student')) {
-                // Student dashboard is Blade, so use Inertia::location() for full page navigation
-                // This prevents Inertia from trying to render Blade view in iframe
-                if ($isInertiaRequest) {
-                    return \Inertia\Inertia::location(route('student.dashboard'));
-                }
-
                 return redirect()->route('student.dashboard');
             }
 
@@ -96,7 +91,8 @@ class AuthController extends Controller
      */
     public function showRegisterForm()
     {
-        if (auth()->check()) {
+        $user = $this->user();
+        if ($user) {
             return redirect()->route('users.index');
         }
 

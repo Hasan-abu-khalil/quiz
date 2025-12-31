@@ -35,12 +35,17 @@ class QuizController extends Controller
 
         $question = $questions[$questionIndex];
 
-        return view('student.quiz-take-single', compact(
-            'attempt',
-            'question',
-            'questionIndex',
-            'questions'
-        ));
+        // Load existing answer if any
+        $existingAnswer = $attempt->answers()->where('question_id', $question->id)->first();
+        $selectedAnswer = $existingAnswer ? (string) $existingAnswer->selected_option_id : '';
+
+        return \Inertia\Inertia::render('student/Quizzes/Take', [
+            'attempt' => $attempt,
+            'question' => $question,
+            'questionIndex' => $questionIndex,
+            'questions' => $questions->map(fn ($q) => ['id' => $q->id]),
+            'selectedAnswer' => $selectedAnswer,
+        ]);
     }
 
     /**
@@ -85,6 +90,14 @@ class QuizController extends Controller
             'total_incorrect' => $incorrectCount,
         ]);
 
+        // If this is the last question, mark attempt as completed
+        if ($questionIndex + 1 >= $questions->count()) {
+            $attempt->update(['ended_at' => now()]);
+
+            return redirect()->route('student.attempts.show', $attempt->id)
+                ->with('success', 'Quiz completed!');
+        }
+
         // Redirect to next question
         return redirect()->route('student.attempts.take.single', [$attempt->id, $questionIndex + 1]);
     }
@@ -94,9 +107,11 @@ class QuizController extends Controller
      */
     public function show(Quiz $quiz)
     {
-        $quiz->load('subject', 'questions');
+        $quiz->load('subject', 'questions:id');
 
-        return view('student.quiz-show', compact('quiz'));
+        return \Inertia\Inertia::render('student/Quizzes/Show', [
+            'quiz' => $quiz,
+        ]);
     }
 
     /**

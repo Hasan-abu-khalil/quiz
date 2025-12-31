@@ -7,6 +7,7 @@ use App\Models\Quiz;
 use App\Models\QuizAttempt;
 use App\Models\Subject;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
@@ -17,13 +18,28 @@ class DashboardController extends Controller
             ->whereHas('questions')
             ->with('subject')
             ->get();
-        $lastAttempts = QuizAttempt::with('quiz')
+        $lastAttempts = QuizAttempt::with('quiz.questions')
             ->where('student_id', Auth::id())
             ->orderByDesc('created_at')
             ->take(3)
             ->get();
 
-        return view('student.dashboard', compact('subjects', 'mixedBagQuizzes', 'lastAttempts'));
+        $unfinishedAttempts = QuizAttempt::with('quiz.questions')
+            ->where('student_id', Auth::id())
+            ->whereNull('ended_at')
+            ->orderByDesc('created_at')
+            ->take(5)
+            ->get();
+
+        return Inertia::render('student/Dashboard', [
+            'subjects' => $subjects,
+            'mixedBagQuizzes' => $mixedBagQuizzes,
+            'lastAttempts' => $lastAttempts,
+            'unfinishedAttempts' => $unfinishedAttempts,
+            'user' => [
+                'name' => Auth::user()->name,
+            ],
+        ]);
     }
 
     public function quizzesBySubject($subjectId)
@@ -31,8 +47,12 @@ class DashboardController extends Controller
         $subject = Subject::findOrFail($subjectId);
         $quizzes = Quiz::where('subject_id', $subjectId)
             ->whereHas('questions')
+            ->with('questions:id')
             ->paginate(6);
 
-        return view('student.quizzes-by-subject', compact('subject', 'quizzes'));
+        return Inertia::render('student/QuizzesBySubject', [
+            'subject' => $subject,
+            'quizzes' => $quizzes,
+        ]);
     }
 }

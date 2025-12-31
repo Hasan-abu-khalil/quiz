@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SmartPagination } from "@/components/common/SmartPagination";
+import { RelativeDate } from "@/components/common/RelativeDate";
 import { ArrowLeft, Trophy, Users, BookOpen, Clock, BarChart3 } from "lucide-react";
 import { route } from "ziggy-js";
 
@@ -51,14 +52,6 @@ const strategyColors: Record<string, string> = {
     mixed: "bg-green-100 text-green-800",
 };
 
-const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-    });
-};
 
 export default function MyChallenges({ quizzes, strategies }: Props) {
     const handlePageChange = (url: string | null) => {
@@ -148,7 +141,10 @@ export default function MyChallenges({ quizzes, strategies }: Props) {
                                             </Badge>
                                         </div>
                                         <p className="text-sm text-muted-foreground mt-1">
-                                            Created {formatDate(quiz.created_at)}
+                                            Created{" "}
+                                            <RelativeDate
+                                                date={quiz.created_at}
+                                            />
                                         </p>
                                     </CardHeader>
                                     <CardContent>

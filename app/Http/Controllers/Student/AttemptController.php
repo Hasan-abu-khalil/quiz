@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\QuizAttempt;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class AttemptController extends Controller
 {
@@ -15,7 +16,9 @@ class AttemptController extends Controller
             ->orderByDesc('created_at')
             ->paginate(10);
 
-        return view('student.attempts-index', compact('attempts'));
+        return Inertia::render('student/Attempts/Index', [
+            'attempts' => $attempts,
+        ]);
     }
 
     public function show(QuizAttempt $attempt)
@@ -24,25 +27,40 @@ class AttemptController extends Controller
             abort(403);
         }
 
-        $attempt->load(['quiz', 'answers.question.options', 'answers.question.subject']);
-        $answers = $attempt->answers()->paginate(5);
+        $attempt->load('quiz');
+        $answers = $attempt->answers()
+            ->with(['question.options', 'question.subject'])
+            ->paginate(5);
 
-        return view('student.attempts-show', compact('attempt', 'answers'));
+        return Inertia::render('student/Attempts/Show', [
+            'attempt' => $attempt,
+            'answers' => $answers,
+        ]);
     }
 
     public function resume(QuizAttempt $attempt)
     {
-        if ($attempt->student_id !== auth()->id()) {
+        if ($attempt->student_id !== $this->user()->id) {
             abort(403);
         }
 
-        // Load the quiz and its questions
+        // Don't allow resuming completed quizzes
+        if ($attempt->ended_at) {
+            return redirect()->route('student.attempts.show', $attempt->id)
+                ->with('info', 'This quiz has already been completed.');
+        }
+
+        // Load the quiz and its questions, and the attempt's answers
+        $attempt->load('answers');
         $quiz = $attempt->quiz()->with('questions.options')->first();
         $questions = $quiz->questions;
 
+        // Get answered question IDs
+        $answeredQuestionIds = $attempt->answers->pluck('question_id')->toArray();
+
         // Find the next unanswered question
-        $nextIndex = $questions->search(function ($question) use ($attempt) {
-            return ! $attempt->answers->contains('question_id', $question->id);
+        $nextIndex = $questions->search(function ($question) use ($answeredQuestionIds) {
+            return ! in_array($question->id, $answeredQuestionIds);
         });
 
         // If all questions are answered, mark as finished

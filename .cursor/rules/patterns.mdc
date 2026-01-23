@@ -11,11 +11,11 @@ alwaysApply: false
 
 ## Controller Pattern - CRITICAL
 
-**ALWAYS use `HandlesInertiaRequests` trait helpers** - Never check `header('X-Inertia')` directly.
+**ALWAYS use Inertia's built-in `inertia()` method** - Never check `header('X-Inertia')` directly.
 
 ```php
 // ✅ Correct
-if ($this->wantsInertiaResponse($request)) {
+if ($request->inertia()) {
     return redirect()->route('admin.resource.index')->with('success', 'Message');
 }
 
@@ -26,7 +26,7 @@ if ($request->header('X-Inertia')) { ... }
 **Pattern for all CRUD methods:**
 
 1. Validate/create/update/delete
-2. Check `$this->wantsInertiaResponse($request)` FIRST
+2. Check `$request->inertia()` FIRST
 3. Return Inertia redirect with flash message
 4. Fallback to JSON for legacy requests
 

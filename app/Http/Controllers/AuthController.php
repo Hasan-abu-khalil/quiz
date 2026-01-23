@@ -26,7 +26,7 @@ class AuthController extends Controller
         }
 
         // For Inertia requests, render Inertia login page
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return \Inertia\Inertia::render('auth/Login');
         }
 
@@ -153,7 +153,7 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         // Check if this is an Inertia request
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             // Use Inertia::location() for full page navigation to login
             // This ensures we get the correct login page (Inertia or Blade)
             return \Inertia\Inertia::location(route('login'));

@@ -29,7 +29,7 @@ class QuizController extends Controller
         $quizzes = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
 
         // For Inertia requests, return Inertia response
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return \Inertia\Inertia::render('admin/Quizzes/Index', [
                 'quizzes' => $quizzes,
                 'subjects' => Subject::select('id', 'name')->get(),
@@ -84,7 +84,7 @@ class QuizController extends Controller
 
     public function createForm(Request $request)
     {
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return \Inertia\Inertia::render('admin/Quizzes/Create', [
                 'subjects' => Subject::select('id', 'name')->get(),
                 'questions' => \App\Models\Question::where('state', \App\Models\Question::STATE_DONE)
@@ -134,7 +134,7 @@ class QuizController extends Controller
                 ->toArray();
 
             if (! empty($nonDoneQuestions)) {
-                if ($this->wantsInertiaResponse($request)) {
+                if ($request->inertia($request)) {
                     return $this->redirectWithError(
                         $request,
                         'admin.quizzes.edit',
@@ -171,7 +171,7 @@ class QuizController extends Controller
         }
 
         // For Inertia requests
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return redirect()
                 ->route('admin.quizzes.index')
                 ->with('success', 'Quiz created successfully');
@@ -271,7 +271,7 @@ class QuizController extends Controller
         $quiz->questions = $quiz->quizQuestion;
         unset($quiz->quizQuestion);
 
-        if ($this->wantsInertiaResponse(request())) {
+        if (request()->inertia()) {
             return \Inertia\Inertia::render('admin/Quizzes/Show', [
                 'quiz' => $quiz,
             ]);
@@ -284,7 +284,7 @@ class QuizController extends Controller
     {
         $quiz = Quiz::with(['subject', 'quizQuestion.question'])->findOrFail($id);
 
-        if ($this->wantsInertiaResponse(request())) {
+        if (request()->inertia()) {
             $quiz->questions = $quiz->quizQuestion;
             unset($quiz->quizQuestion);
 
@@ -335,7 +335,7 @@ class QuizController extends Controller
         $quiz->save();
 
         // For Inertia requests
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return redirect()
                 ->route('admin.quizzes.index')
                 ->with('success', 'Quiz updated successfully');
@@ -356,7 +356,7 @@ class QuizController extends Controller
         $quiz->delete();
 
         // For Inertia requests
-        if ($this->wantsInertiaResponse(request())) {
+        if (request()->inertia()) {
             return redirect()
                 ->route('admin.quizzes.index')
                 ->with('success', 'Quiz deleted successfully');
@@ -376,7 +376,7 @@ class QuizController extends Controller
         $ids = $request->ids;
         $deleted = Quiz::whereIn('id', $ids)->delete();
 
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return redirect()
                 ->route('admin.quizzes.index')
                 ->with('success', "{$deleted} quiz(zes) deleted successfully");

@@ -57,7 +57,7 @@ class QuestionController extends Controller
         $questions = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
 
         // For Inertia requests, return Inertia response
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             // Map questions to ensure relationships are properly serialized
             $questions->getCollection()->transform(function ($question) {
                 return [
@@ -154,7 +154,7 @@ class QuestionController extends Controller
      */
     public function createForm(Request $request)
     {
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return \Inertia\Inertia::render('admin/Questions/Create', [
                 'subjects' => Subject::select('id', 'name')->get(),
                 'tags' => \App\Models\Tag::select('id', 'tag_text')->get(),
@@ -270,7 +270,7 @@ class QuestionController extends Controller
         }
 
         // For Inertia requests
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return redirect()
                 ->route('admin.questions.index')
                 ->with('success', 'Question created successfully');
@@ -289,7 +289,7 @@ class QuestionController extends Controller
         }
 
         // For Inertia requests
-        if ($this->wantsInertiaResponse(request())) {
+        if (request()->inertia()) {
             return \Inertia\Inertia::render('admin/Questions/Show', [
                 'question' => [
                     'id' => $question->id,
@@ -401,7 +401,7 @@ class QuestionController extends Controller
         // Use Policy for authorization
         $this->authorize('update', $question);
 
-        if ($this->wantsInertiaResponse(request())) {
+        if (request()->inertia()) {
             return \Inertia\Inertia::render('admin/Questions/Edit', [
                 'question' => [
                     'id' => $question->id,
@@ -538,7 +538,7 @@ class QuestionController extends Controller
         }
 
         // For Inertia requests
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             // Preserve current filters (tab, search, subject_id) when redirecting
             $queryParams = [];
             if ($request->has('tab')) {
@@ -621,7 +621,7 @@ class QuestionController extends Controller
 
         $deleted = Question::whereIn('id', $ids)->delete();
 
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return redirect()
                 ->route('admin.questions.index', $request->only(['tab', 'search', 'subject_id', 'page']))
                 ->with('success', "{$deleted} question(s) deleted successfully");
@@ -692,7 +692,7 @@ class QuestionController extends Controller
 
         $questions = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
 
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return response()->json([
                 'questions' => $questions,
             ]);
@@ -727,7 +727,7 @@ class QuestionController extends Controller
 
         $questions = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
 
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return response()->json([
                 'questions' => $questions,
             ]);
@@ -787,7 +787,7 @@ class QuestionController extends Controller
         }
 
         if ($question->assignTo($user->id)) {
-            if ($this->wantsInertiaResponse($request)) {
+            if ($request->inertia($request)) {
                 // If coming from show/edit page, redirect back; otherwise go to index
                 if ($this->shouldRedirectBack($request, $id)) {
                     return redirect()
@@ -879,7 +879,7 @@ class QuestionController extends Controller
             $message .= ". {$skipped} question(s) were skipped (already assigned or cannot be assigned).";
         }
 
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return redirect()
                 ->route('admin.questions.index', $request->only(['tab', 'search', 'subject_id', 'page']))
                 ->with('success', $message);
@@ -950,7 +950,7 @@ class QuestionController extends Controller
             $message .= ". {$skipped} question(s) were skipped (not in under-review state or cannot be changed).";
         }
 
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return redirect()
                 ->route('admin.questions.index', $request->only(['tab', 'search', 'subject_id', 'page']))
                 ->with('success', $message);
@@ -990,7 +990,7 @@ class QuestionController extends Controller
         }
 
         if ($question->unassign($user->id)) {
-            if ($this->wantsInertiaResponse($request)) {
+            if ($request->inertia($request)) {
                 // If coming from show/edit page, redirect back; otherwise go to index
                 if ($this->shouldRedirectBack($request, $id)) {
                     return redirect()
@@ -1058,7 +1058,7 @@ class QuestionController extends Controller
         }
 
         if ($question->changeState($request->state, $request->notes ?? null)) {
-            if ($this->wantsInertiaResponse($request)) {
+            if ($request->inertia($request)) {
                 // If coming from show/edit page, redirect back; otherwise go to index
                 if ($this->shouldRedirectBack($request, $id)) {
                     return redirect()
@@ -1127,7 +1127,7 @@ class QuestionController extends Controller
         $assignToUserId = ! $question->assigned_to ? $user->id : null;
 
         if ($question->resetToInitial($user->id, $assignToUserId)) {
-            if ($this->wantsInertiaResponse($request)) {
+            if ($request->inertia($request)) {
                 $message = $assignToUserId
                     ? 'Question reset to initial state and assigned to you successfully'
                     : 'Question reset to initial state successfully';

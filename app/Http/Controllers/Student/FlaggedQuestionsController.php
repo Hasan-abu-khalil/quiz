@@ -74,17 +74,19 @@ class FlaggedQuestionsController extends Controller
         $user = $this->user();
 
         if ($user->flaggedQuestions()->where('question_id', $question->id)->exists()) {
-            if ($request->wantsInertia()) {
+            if ($request->inertia()) {
                 return redirect()->back()->with('info', 'Question is already flagged.');
             }
+
             return response()->json(['message' => 'Question is already flagged.'], 200);
         }
 
         $user->flaggedQuestions()->attach($question->id);
 
-        if ($request->wantsInertia()) {
+        if ($request->inertia()) {
             return redirect()->back()->with('success', 'Question flagged successfully.');
         }
+
         return response()->json(['success' => true, 'message' => 'Question flagged successfully.']);
     }
 
@@ -97,9 +99,10 @@ class FlaggedQuestionsController extends Controller
 
         $user->flaggedQuestions()->detach($question->id);
 
-        if ($request->wantsInertia()) {
+        if ($request->inertia()) {
             return redirect()->back()->with('success', 'Question unflagged successfully.');
         }
+
         return response()->json(['success' => true, 'message' => 'Question unflagged successfully.']);
     }
 }

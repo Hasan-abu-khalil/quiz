@@ -6,8 +6,9 @@ use App\Models\Quiz;
 use App\Models\QuizAttempt;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Yajra\DataTables\DataTables;
 use Illuminate\Support\Facades\Auth;
+use Yajra\DataTables\DataTables;
+
 class QuizAttemptController extends Controller
 {
     public function index(Request $request)
@@ -16,7 +17,7 @@ class QuizAttemptController extends Controller
 
         $query = QuizAttempt::with([
             'quiz.creator',
-            'student'
+            'student',
         ])->orderBy('created_at', 'desc');
 
         // 🔐 Teacher sees ONLY attempts of quizzes they created
@@ -28,12 +29,12 @@ class QuizAttemptController extends Controller
         // Apply search if provided
         if ($request->has('search') && $request->search != '') {
             $search = $request->search;
-            $query->whereHas('quiz', fn($q) => $q->where('title', 'like', "%{$search}%"))
-                ->orWhereHas('student', fn($q) => $q->where('name', 'like', "%{$search}%"));
+            $query->whereHas('quiz', fn ($q) => $q->where('title', 'like', "%{$search}%"))
+                ->orWhereHas('student', fn ($q) => $q->where('name', 'like', "%{$search}%"));
         }
 
         // Paginate and map
-        $attempts = $query->paginate(10)->withQueryString()->through(fn($attempt) => [
+        $attempts = $query->paginate(10)->withQueryString()->through(fn ($attempt) => [
             'id' => $attempt->id,
             'quiz_id' => $attempt->quiz_id,
             'student_id' => $attempt->student_id,
@@ -65,23 +66,23 @@ class QuizAttemptController extends Controller
 
             return DataTables::of($data)
                 ->addIndexColumn()
-                ->addColumn('quiz_title', fn($row) => $row->quiz ? $row->quiz->title : '')
-                ->addColumn('student_name', fn($row) => $row->student ? $row->student->name : '')
+                ->addColumn('quiz_title', fn ($row) => $row->quiz ? $row->quiz->title : '')
+                ->addColumn('student_name', fn ($row) => $row->student ? $row->student->name : '')
                 ->addColumn('score', function ($row) {
                     $totalQuestions = $row->quiz?->questions->count() ?? 0;
 
-                    return $row->score . ' / ' . $totalQuestions;
+                    return $row->score.' / '.$totalQuestions;
                 })
                 ->addColumn('action', function ($row) {
                     return '
                          <div class="d-grid gap-2 d-md-block">
-                    <a href="javascript:void(0)" class="btn btn-info  view" data-id="' . $row->id . '" data-toggle="tooltip" title="View">View</a>
+                    <a href="javascript:void(0)" class="btn btn-info  view" data-id="'.$row->id.'" data-toggle="tooltip" title="View">View</a>
 
-                     <a href="javascript:void(0)" class="edit-attempt btn btn-primary btn-action " data-id="' . $row->id . '" data-toggle="tooltip" title="Edit">
+                     <a href="javascript:void(0)" class="edit-attempt btn btn-primary btn-action " data-id="'.$row->id.'" data-toggle="tooltip" title="Edit">
                       <i class="fas fa-pencil-alt"></i>
                      </a>
 
-                    <a href="javascript:void(0)" class="delete-attempt btn btn-danger  " data-id="' . $row->id . '" data-toggle="tooltip" title="Delete">
+                    <a href="javascript:void(0)" class="delete-attempt btn btn-danger  " data-id="'.$row->id.'" data-toggle="tooltip" title="Delete">
                       <i class="fas fa-trash"></i>
                       </a>
                      </div>
@@ -130,12 +131,12 @@ class QuizAttemptController extends Controller
         ) {
             abort(403);
         }
-        if (!$attempt) {
+        if (! $attempt) {
             abort(404, 'Quiz Attempt not found');
         }
 
         // For Inertia requests
-        if ($this->wantsInertiaResponse(request())) {
+        if (request()->inertia()) {
             $answers = $attempt->answers->map(function ($answer) {
                 return [
                     'id' => $answer->id,
@@ -219,14 +220,14 @@ class QuizAttemptController extends Controller
     {
         $attempt = QuizAttempt::find($id);
 
-        if (!$attempt) {
+        if (! $attempt) {
             abort(404, 'Quiz Attempt not found');
         }
 
         $attempt->delete();
 
         // For Inertia requests
-        if ($this->wantsInertiaResponse(request())) {
+        if (request()->inertia()) {
             return redirect()
                 ->route('admin.attempts.index')
                 ->with('success', 'Attempt deleted successfully');

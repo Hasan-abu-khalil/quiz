@@ -370,12 +370,11 @@ export default function Create({ subjects, questions }: Props) {
                                                 form.data?.title ||
                                                     form.setData(
                                                         "title",
-                                                        `${
-                                                            subjects.find(
-                                                                (s) =>
-                                                                    s.id ===
-                                                                    Number(v)
-                                                            )?.name
+                                                        `${subjects.find(
+                                                            (s) =>
+                                                                s.id ===
+                                                                Number(v)
+                                                        )?.name
                                                         } Quiz`
                                                     );
                                             }}
@@ -587,13 +586,12 @@ export default function Create({ subjects, questions }: Props) {
                                     )}
                                     {!isLoadingQuestions && (
                                         <div
-                                            className={`space-y-3 max-h-[50vh] overflow-y-auto ${
-                                                form.data.mode ===
-                                                    "by_subject" &&
+                                            className={`space-y-3 max-h-[50vh] overflow-y-auto ${form.data.mode ===
+                                                "by_subject" &&
                                                 !form.data.subject_id
-                                                    ? "opacity-50 pointer-events-none"
-                                                    : ""
-                                            }`}
+                                                ? "opacity-50 pointer-events-none"
+                                                : ""
+                                                }`}
                                         >
                                             {form.data.questions
                                                 .map((q, originalIndex) => ({
@@ -616,10 +614,10 @@ export default function Create({ subjects, questions }: Props) {
                                                         );
                                                     return questionData
                                                         ? questionData.question_text
-                                                              .toLowerCase()
-                                                              .includes(
-                                                                  questionSearch.toLowerCase()
-                                                              )
+                                                            .toLowerCase()
+                                                            .includes(
+                                                                questionSearch.toLowerCase()
+                                                            )
                                                         : false;
                                                 })
                                                 .map(
@@ -664,11 +662,11 @@ export default function Create({ subjects, questions }: Props) {
                                                                                             idx
                                                                                         ) =>
                                                                                             q2.question_id ===
-                                                                                                String(
-                                                                                                    ques.id
-                                                                                                ) &&
+                                                                                            String(
+                                                                                                ques.id
+                                                                                            ) &&
                                                                                             idx !==
-                                                                                                originalIndex
+                                                                                            originalIndex
                                                                                     )
                                                                             )
                                                                             .map(
@@ -725,7 +723,7 @@ export default function Create({ subjects, questions }: Props) {
                                                                     message={
                                                                         form
                                                                             .errors[
-                                                                            `questions.${originalIndex}.question_id`
+                                                                        `questions.${originalIndex}.question_id`
                                                                         ]
                                                                     }
                                                                 />
@@ -751,7 +749,7 @@ export default function Create({ subjects, questions }: Props) {
                                                                                     .target
                                                                                     .value
                                                                             ) ||
-                                                                                1
+                                                                            1
                                                                         )
                                                                     }
                                                                 />
@@ -759,7 +757,7 @@ export default function Create({ subjects, questions }: Props) {
                                                                     message={
                                                                         form
                                                                             .errors[
-                                                                            `questions.${originalIndex}.order`
+                                                                        `questions.${originalIndex}.order`
                                                                         ]
                                                                     }
                                                                 />
@@ -801,7 +799,10 @@ export default function Create({ subjects, questions }: Props) {
                                     </Button>
                                     <Button
                                         type="submit"
-                                        disabled={form.processing}
+                                        disabled={
+                                            form.processing ||
+                                            form.data.questions.length === 0
+                                        }
                                     >
                                         {form.processing
                                             ? "Creating..."

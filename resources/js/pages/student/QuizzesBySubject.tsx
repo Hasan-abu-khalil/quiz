@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { route } from "ziggy-js";
-import { Clock, BookOpen, Eye } from "lucide-react";
+import { Clock, BookOpen, Eye, ArrowLeft } from "lucide-react";
 import { SmartPagination } from "@/components/common/SmartPagination";
 
 interface Subject {
@@ -67,16 +67,19 @@ export default function QuizzesBySubject({ subject, quizzes }: Props) {
                         <Button
                             variant="outline"
                             size="sm"
+                            asChild
                             className="mb-4"
-                            onClick={() => window.history.back()}
                         >
-                            ← Back
+                            <Link href={route("student.dashboard")}>
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Back to Dashboard
+                            </Link>
                         </Button>
                     </div>
                 </div>
 
                 {quizzes.data.filter((q) => q.questions.length > 0).length ===
-                0 ? (
+                    0 ? (
                     <p className="text-muted-foreground">
                         No quizzes available in this subject.
                     </p>

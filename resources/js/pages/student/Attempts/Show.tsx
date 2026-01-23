@@ -7,6 +7,7 @@ import { route } from "ziggy-js";
 import { CheckCircle2, XCircle, Circle, Flag } from "lucide-react";
 import { SmartPagination } from "@/components/common/SmartPagination";
 import { SubjectBadge } from "@/components/common/SubjectBadge";
+import { cn } from "@/lib/utils";
 
 interface Subject {
     id: number;
@@ -24,6 +25,7 @@ interface Question {
     question_text: string;
     subject: Subject | null;
     options: Option[];
+    explanations?: Record<string, string>;
 }
 
 interface Answer {
@@ -188,11 +190,10 @@ export default function AttemptsShow({ attempt, answers }: Props) {
                                                 }
                                             >
                                                 <Flag
-                                                    className={`h-5 w-5 ${
-                                                        answer.is_flagged
-                                                            ? "fill-current"
-                                                            : ""
-                                                    }`}
+                                                    className={`h-5 w-5 ${answer.is_flagged
+                                                        ? "fill-current"
+                                                        : ""
+                                                        }`}
                                                 />
                                             </Button>
                                         </div>
@@ -206,28 +207,35 @@ export default function AttemptsShow({ attempt, answers }: Props) {
                                             const isSelected =
                                                 option.id === selectedId;
                                             const isCorrect = option.is_correct;
-                                            const studentIsCorrect =
-                                                answer.is_correct; // هل إجابة الطالب صحيحة؟
+                                            const studentAnswered = selectedId !== null;
 
                                             // تحديد لون النص والخلفية
                                             let textColor =
                                                 "text-muted-foreground";
+                                            let IconComponent = Circle;
 
-                                            if (
-                                                isSelected &&
-                                                studentIsCorrect
-                                            ) {
-                                                textColor = "text-blue-600"; // الطالب اختار صحيح → أزرق
-                                            } else if (
-                                                isSelected &&
-                                                !studentIsCorrect
-                                            ) {
-                                                textColor = "text-red-600"; // الطالب اختار خاطئ → أحمر
-                                            } else if (
-                                                isCorrect &&
-                                                !studentIsCorrect
-                                            ) {
-                                                textColor = "text-green-600"; // الإجابة الصحيحة تظهر إذا أخطأ → أخضر
+                                            if (studentAnswered) {
+                                                // Student answered - show check/X based on selection
+                                                if (isSelected && isCorrect) {
+                                                    textColor = "text-green-600";
+                                                    IconComponent = CheckCircle2;
+                                                } else if (
+                                                    isSelected &&
+                                                    !isCorrect
+                                                ) {
+                                                    textColor = "text-red-600";
+                                                    IconComponent = XCircle;
+                                                } else if (isCorrect) {
+                                                    // Correct answer but not selected
+                                                    textColor = "text-green-600";
+                                                    IconComponent = Circle;
+                                                }
+                                            } else {
+                                                // Student didn't answer - only show color for correct option
+                                                if (isCorrect) {
+                                                    textColor = "text-green-600";
+                                                }
+                                                IconComponent = Circle;
                                             }
 
                                             return (
@@ -236,39 +244,56 @@ export default function AttemptsShow({ attempt, answers }: Props) {
                                                     className={`flex items-center gap-2 p-2 rounded border`}
                                                 >
                                                     <span>
-                                                        {isCorrect ? (
-                                                            <CheckCircle2
-                                                                className={`h-5 w-5 ${textColor}`}
-                                                            />
-                                                        ) : isSelected &&
-                                                          !isCorrect ? (
-                                                            <XCircle
-                                                                className={`h-5 w-5 ${textColor}`}
-                                                            />
-                                                        ) : (
-                                                            <Circle
-                                                                className={`h-5 w-5 ${textColor}`}
-                                                            />
-                                                        )}
+                                                        <IconComponent
+                                                            className={`h-5 w-5 ${textColor}`}
+                                                        />
                                                     </span>
                                                     <span
                                                         className={`flex-1 font-bold ${textColor}`}
                                                     >
                                                         {option.option_text}
-                                                        {/* يمكن إبقاء علامة Correct إذا أحببت */}
                                                         {isCorrect &&
-                                                        !studentIsCorrect ? (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="ml-2 text-green-600"
-                                                            >
-                                                                Correct
-                                                            </Badge>
-                                                        ) : null}
+                                                            !isSelected &&
+                                                            studentAnswered && (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="ml-2 text-green-600"
+                                                                >
+                                                                    Correct
+                                                                </Badge>
+                                                            )}
                                                     </span>
                                                 </div>
                                             );
                                         })}
+
+                                        {/* Explanation */}
+                                        {answer.question.explanations &&
+                                            Object.keys(
+                                                answer.question.explanations,
+                                            ).length > 0 && (
+                                                <div className="pt-4 border-t space-y-2">
+                                                    <h4 className="font-semibold text-sm">
+                                                        Explanation:
+                                                    </h4>
+                                                    {Object.entries(
+                                                        answer.question
+                                                            .explanations,
+                                                    ).map(([key, value]) => (
+                                                        <div
+                                                            key={key}
+                                                            className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md"
+                                                        >
+                                                            <strong className={cn("text-foreground", {
+                                                                "hidden": key === "correct" || key === "wrong"
+                                                            })}>
+                                                                {key} :
+                                                            </strong>
+                                                            {value}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                     </CardContent>
                                 </Card>
                             );

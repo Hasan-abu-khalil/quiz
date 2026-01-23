@@ -19,6 +19,7 @@ interface Quiz {
     mode: string;
     time_limit_minutes: number | null;
     total_questions: number | null;
+    questions_count?: number;
     subject?: {
         id: number;
         name: string;
@@ -88,6 +89,68 @@ export default function Dashboard({
                         Choose a subject to see quizzes.
                     </p>
                 </div>
+
+                {/* Unfinished Quizzes Section */}
+                {unfinishedAttempts.length > 0 && (
+                    <div>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-2xl font-semibold">
+                                Unfinished Quizzes
+                            </h2>
+                            <Button variant="outline" asChild>
+                                <Link href={route("student.attempts.index")}>
+                                    View all attempts
+                                </Link>
+                            </Button>
+                        </div>
+                        <p className="text-muted-foreground mb-4">
+                            Continue where you left off
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {unfinishedAttempts.map((attempt) => (
+                                <Card
+                                    key={attempt.id}
+                                    className="flex flex-col border-orange-200 dark:border-orange-800"
+                                >
+                                    <CardHeader>
+                                        <CardTitle>
+                                            {attempt.quiz.title}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-2 flex-1 flex flex-col">
+                                        <div className="flex items-center gap-2">
+                                            <Clock className="h-4 w-4 text-muted-foreground" />
+                                            <span className="text-sm text-muted-foreground">
+                                                Started:{" "}
+                                                <RelativeDate
+                                                    date={attempt.created_at}
+                                                />
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-2 mt-auto">
+                                            <Button
+                                                asChild
+                                                variant="default"
+                                                size="sm"
+                                                className="flex-1"
+                                            >
+                                                <Link
+                                                    href={route(
+                                                        "student.attempts.resume",
+                                                        attempt.id
+                                                    )}
+                                                >
+                                                    <Play className="mr-2 h-4 w-4" />
+                                                    Resume
+                                                </Link>
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Subjects Section */}
                 <div>
@@ -159,75 +222,70 @@ export default function Dashboard({
                                 different topics.
                             </p>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {mixedBagQuizzes
-                                    .filter(
-                                        (quiz) =>
-                                            (quiz.questions?.length ?? 0) > 0
-                                    )
-                                    .map((quiz) => (
-                                        <Card
-                                            key={quiz.id}
-                                            className="flex flex-col"
-                                        >
-                                            <CardHeader>
-                                                <CardTitle>
-                                                    {quiz.title}
-                                                </CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="space-y-2 flex-1 flex flex-col">
-                                                <div className="space-y-1">
-                                                    <Badge variant="outline">
-                                                        {quiz.mode
-                                                            .split("_")
-                                                            .map(
-                                                                (word) =>
-                                                                    word
-                                                                        .charAt(
-                                                                            0
-                                                                        )
-                                                                        .toUpperCase() +
-                                                                    word.slice(
-                                                                        1
+                                {mixedBagQuizzes.map((quiz) => (
+                                    <Card
+                                        key={quiz.id}
+                                        className="flex flex-col"
+                                    >
+                                        <CardHeader>
+                                            <CardTitle>
+                                                {quiz.title}
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-2 flex-1 flex flex-col">
+                                            <div className="space-y-1">
+                                                <Badge variant="outline">
+                                                    {quiz.mode
+                                                        .split("_")
+                                                        .map(
+                                                            (word) =>
+                                                                word
+                                                                    .charAt(
+                                                                        0
                                                                     )
-                                                            )
-                                                            .join(" ")}
-                                                    </Badge>
-                                                    {quiz.time_limit_minutes && (
-                                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                            <Clock className="h-4 w-4" />
-                                                            {
-                                                                quiz.time_limit_minutes
-                                                            }{" "}
-                                                            min
-                                                        </div>
+                                                                    .toUpperCase() +
+                                                                word.slice(
+                                                                    1
+                                                                )
+                                                        )
+                                                        .join(" ")}
+                                                </Badge>
+                                                {quiz.time_limit_minutes && (
+                                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                        <Clock className="h-4 w-4" />
+                                                        {
+                                                            quiz.time_limit_minutes
+                                                        }{" "}
+                                                        min
+                                                    </div>
+                                                )}
+                                                {quiz.total_questions && (
+                                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                        <BookOpen className="h-4 w-4" />
+                                                        {
+                                                            quiz.total_questions
+                                                        }{" "}
+                                                        questions
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <Button
+                                                asChild
+                                                className="w-full mt-auto"
+                                            >
+                                                <Link
+                                                    href={route(
+                                                        "student.quizzes.show",
+                                                        quiz.id
                                                     )}
-                                                    {quiz.total_questions && (
-                                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                            <BookOpen className="h-4 w-4" />
-                                                            {
-                                                                quiz.total_questions
-                                                            }{" "}
-                                                            questions
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <Button
-                                                    asChild
-                                                    className="w-full mt-auto"
                                                 >
-                                                    <Link
-                                                        href={route(
-                                                            "student.quizzes.show",
-                                                            quiz.id
-                                                        )}
-                                                    >
-                                                        <Eye className="mr-2 h-4 w-4" />
-                                                        View & Start
-                                                    </Link>
-                                                </Button>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
+                                                    <Eye className="mr-2 h-4 w-4" />
+                                                    View & Start
+                                                </Link>
+                                            </Button>
+                                        </CardContent>
+                                    </Card>
+                                ))}
                             </div>
                         </div>
                     </>
@@ -327,68 +385,6 @@ export default function Dashboard({
                         </Card>
                     </div>
                 </div>
-
-                {/* Unfinished Quizzes Section */}
-                {unfinishedAttempts.length > 0 && (
-                    <div className="border-t pt-8">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-2xl font-semibold">
-                                Unfinished Quizzes
-                            </h2>
-                            <Button variant="outline" asChild>
-                                <Link href={route("student.attempts.index")}>
-                                    View all attempts
-                                </Link>
-                            </Button>
-                        </div>
-                        <p className="text-muted-foreground mb-4">
-                            Continue where you left off
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {unfinishedAttempts.map((attempt) => (
-                                <Card
-                                    key={attempt.id}
-                                    className="flex flex-col border-orange-200 dark:border-orange-800"
-                                >
-                                    <CardHeader>
-                                        <CardTitle>
-                                            {attempt.quiz.title}
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-2 flex-1 flex flex-col">
-                                        <div className="flex items-center gap-2">
-                                            <Clock className="h-4 w-4 text-muted-foreground" />
-                                            <span className="text-sm text-muted-foreground">
-                                                Started:{" "}
-                                                <RelativeDate
-                                                    date={attempt.created_at}
-                                                />
-                                            </span>
-                                        </div>
-                                        <div className="flex gap-2 mt-auto">
-                                            <Button
-                                                asChild
-                                                variant="default"
-                                                size="sm"
-                                                className="flex-1"
-                                            >
-                                                <Link
-                                                    href={route(
-                                                        "student.attempts.resume",
-                                                        attempt.id
-                                                    )}
-                                                >
-                                                    <Play className="mr-2 h-4 w-4" />
-                                                    Resume
-                                                </Link>
-                                            </Button>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    </div>
-                )}
 
                 {/* Recent Attempts Section */}
                 <div className="border-t pt-8">

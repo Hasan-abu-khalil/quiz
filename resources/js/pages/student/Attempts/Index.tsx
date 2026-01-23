@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { route } from "ziggy-js";
-import { Eye, Play } from "lucide-react";
+import { Eye, Play, ArrowLeft } from "lucide-react";
 import { SmartPagination } from "@/components/common/SmartPagination";
 import { RelativeDate } from "@/components/common/RelativeDate";
 
@@ -64,6 +64,14 @@ export default function AttemptsIndex({ attempts }: Props) {
             <Head title="My Attempts" />
             <div className="space-y-6">
                 <div>
+                    <Button
+                        variant="ghost"
+                        onClick={() => router.visit(route("student.dashboard"))}
+                        className="mb-4"
+                    >
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to Dashboard
+                    </Button>
                     <h1 className="text-3xl font-bold mb-2">My Attempts</h1>
                     <p className="text-muted-foreground">
                         View your quiz history and results.

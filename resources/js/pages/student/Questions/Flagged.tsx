@@ -52,11 +52,22 @@ interface Props {
         prev_page_url: string | null;
         next_page_url: string | null;
     };
+    subjects: Subject[];
+    filters: {
+        subject_id?: string;
+    };
 }
 
-export default function FlaggedQuestions({ questions }: Props) {
+export default function FlaggedQuestions({
+    questions,
+    subjects,
+    filters,
+}: Props) {
     const [revealedQuestions, setRevealedQuestions] = useState<Set<number>>(
         new Set(),
+    );
+    const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(
+        filters.subject_id || "all",
     );
 
     const toggleReveal = (questionId: number) => {
@@ -78,6 +89,22 @@ export default function FlaggedQuestions({ questions }: Props) {
         if (url) {
             router.visit(url, { preserveState: true, preserveScroll: true });
         }
+    };
+
+    const handleSubjectFilter = (subjectId: string | number | null) => {
+        const subjectIdStr =
+            subjectId === null || subjectId === "all" ? "all" : String(subjectId);
+        setSelectedSubjectId(subjectIdStr);
+
+        const params: Record<string, string> = {};
+        if (subjectIdStr !== "all") {
+            params.subject_id = subjectIdStr;
+        }
+
+        router.get(route("student.questions.flagged"), params, {
+            preserveState: true,
+            preserveScroll: true,
+        });
     };
 
     return (
@@ -114,6 +141,41 @@ export default function FlaggedQuestions({ questions }: Props) {
                         )}
                     </div>
                 </div>
+
+                {/* Subject Filter Badges */}
+                {subjects.length > 0 && (
+                    <div className="mb-6">
+                        <div className="flex flex-wrap gap-2">
+                            <Badge
+                                variant={
+                                    selectedSubjectId === "all"
+                                        ? "default"
+                                        : "outline"
+                                }
+                                className="cursor-pointer hover:bg-primary/10"
+                                onClick={() => handleSubjectFilter("all")}
+                            >
+                                All
+                            </Badge>
+                            {subjects.map((subject) => (
+                                <Badge
+                                    key={subject.id}
+                                    variant={
+                                        selectedSubjectId === String(subject.id)
+                                            ? "default"
+                                            : "outline"
+                                    }
+                                    className="cursor-pointer hover:bg-primary/10"
+                                    onClick={() =>
+                                        handleSubjectFilter(subject.id)
+                                    }
+                                >
+                                    {subject.name}
+                                </Badge>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {questions.data.length === 0 ? (
                     <Card>
@@ -172,9 +234,9 @@ export default function FlaggedQuestions({ questions }: Props) {
                                                             question.id,
                                                         )
                                                     }
-                                                    className="text-red-500 hover:text-red-700"
+                                                    className="text-yellow-500"
                                                 >
-                                                    <X className="h-4 w-4" />
+                                                    <Flag className="h-4 w-4 fill-current" />
                                                 </Button>
                                             </div>
                                         </CardHeader>
@@ -188,47 +250,58 @@ export default function FlaggedQuestions({ questions }: Props) {
                                                             question.selected_option_id;
                                                         const isCorrectOption =
                                                             option.is_correct ===
-                                                                true ||
+                                                            true ||
                                                             option.is_correct ===
-                                                                1;
-                                                        const studentIsCorrect =
-                                                            question.is_correct;
+                                                            1;
+                                                        const studentAnswered =
+                                                            question.selected_option_id !==
+                                                            null;
 
                                                         let bgClass =
                                                             "bg-background border-border";
                                                         let textClass =
                                                             "text-muted-foreground";
                                                         let IconComponent =
-                                                            Circle; // افتراضي: دائرة عادية
+                                                            Circle;
 
                                                         if (isRevealed) {
-                                                            if (
-                                                                isSelected &&
-                                                                studentIsCorrect
-                                                            ) {
-                                                                
-                                                                textClass =
-                                                                    "text-blue-600";
+                                                            if (studentAnswered) {
+                                                                // Student answered - show check/X based on selection
+                                                                if (
+                                                                    isSelected &&
+                                                                    isCorrectOption
+                                                                ) {
+                                                                    textClass =
+                                                                        "text-green-600";
+                                                                    IconComponent =
+                                                                        CheckCircle2;
+                                                                } else if (
+                                                                    isSelected &&
+                                                                    !isCorrectOption
+                                                                ) {
+                                                                    textClass =
+                                                                        "text-red-600";
+                                                                    IconComponent =
+                                                                        XCircle;
+                                                                } else if (
+                                                                    isCorrectOption
+                                                                ) {
+                                                                    // Correct answer but not selected
+                                                                    textClass =
+                                                                        "text-green-600";
+                                                                    IconComponent =
+                                                                        Circle;
+                                                                }
+                                                            } else {
+                                                                // Student didn't answer - only show color for correct option
+                                                                if (
+                                                                    isCorrectOption
+                                                                ) {
+                                                                    textClass =
+                                                                        "text-green-600";
+                                                                }
                                                                 IconComponent =
-                                                                    CheckCircle2; // صح أزرق
-                                                            } else if (
-                                                                isSelected &&
-                                                                !studentIsCorrect
-                                                            ) {
-                                                               
-                                                                textClass =
-                                                                    "text-red-600";
-                                                                IconComponent =
-                                                                    XCircle; // خطأ أحمر
-                                                            } else if (
-                                                                !isSelected &&
-                                                                isCorrectOption
-                                                            ) {
-                                                                
-                                                                textClass =
-                                                                    "text-green-600";
-                                                                IconComponent =
-                                                                    CheckCircle2; // صح أخضر
+                                                                    Circle;
                                                             }
                                                         }
 
@@ -249,8 +322,9 @@ export default function FlaggedQuestions({ questions }: Props) {
                                                                         }
                                                                     </span>
                                                                     {isRevealed &&
-                                                                        !studentIsCorrect &&
-                                                                        isCorrectOption && (
+                                                                        !isSelected &&
+                                                                        isCorrectOption &&
+                                                                        studentAnswered && (
                                                                             <Badge className="bg-green-500 text-white ml-2">
                                                                                 Correct
                                                                             </Badge>

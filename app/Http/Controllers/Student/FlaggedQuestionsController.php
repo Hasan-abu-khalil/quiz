@@ -17,11 +17,30 @@ class FlaggedQuestionsController extends Controller
     {
         $user = $this->user();
 
+        // Get all subjects that have flagged questions for this user
+        $subjects = $user->flaggedQuestions()
+            ->with('subject:id,name')
+            ->get()
+            ->pluck('subject')
+            ->filter()
+            ->unique('id')
+            ->values()
+            ->sortBy('name')
+            ->values();
+
         // جلب الأسئلة الموسومة (flagged) لهذا الطالب
-        $flaggedQuestions = $user->flaggedQuestions()
-            ->with(['subject:id,name', 'options'])
+        $query = $user->flaggedQuestions()
+            ->with(['subject:id,name', 'options']);
+
+        // Filter by subject if provided
+        if ($request->has('subject_id') && $request->subject_id !== 'all') {
+            $query->where('subject_id', $request->subject_id);
+        }
+
+        $flaggedQuestions = $query
             ->orderByDesc('question_flags.created_at')
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
         // تعديل البنية لإرسال بيانات إجابة الطالب لكل سؤال
         $questions = $flaggedQuestions->getCollection()->map(function ($question) use ($user) {
@@ -62,6 +81,10 @@ class FlaggedQuestionsController extends Controller
                 'links' => $flaggedQuestions->linkCollection(),
                 'prev_page_url' => $flaggedQuestions->previousPageUrl(),
                 'next_page_url' => $flaggedQuestions->nextPageUrl(),
+            ],
+            'subjects' => $subjects,
+            'filters' => [
+                'subject_id' => $request->get('subject_id', 'all'),
             ],
         ]);
     }

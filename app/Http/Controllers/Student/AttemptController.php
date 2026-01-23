@@ -46,8 +46,32 @@ class AttemptController extends Controller
             ->pluck('question_id')
             ->toArray();
 
-        // Combine questions with answers, ensuring all questions are included
-        $combined = $allQuestions->map(function ($question) use ($allAnswers, $flaggedQuestionIds) {
+        // Create minimal question index for navigation (id, index, page, answered status)
+        $perPage = 5;
+        $totalQuestions = $allQuestions->count();
+        $questionsIndex = $allQuestions->map(function ($question, $index) use ($allAnswers, $perPage) {
+            $answer = $allAnswers->get($question->id);
+            $page = (int) floor($index / $perPage) + 1;
+
+            // A question is answered if there's an answer record AND selected_option_id is not null
+            // If selected_option_id is null, the student skipped the question
+            $isAnswered = $answer !== null && $answer->selected_option_id !== null;
+
+            return [
+                'id' => $question->id,
+                'index' => $index + 1, // 1-based index
+                'page' => $page,
+                'is_answered' => $isAnswered,
+                'is_correct' => $isAnswered ? $answer->is_correct : null,
+            ];
+        })->values();
+
+        // Combine questions with answers for current page only
+        $currentPage = request()->get('page', 1);
+        $offset = ($currentPage - 1) * $perPage;
+        $currentPageQuestions = $allQuestions->slice($offset, $perPage);
+
+        $combined = $currentPageQuestions->map(function ($question) use ($allAnswers, $flaggedQuestionIds) {
             $answer = $allAnswers->get($question->id);
 
             return [
@@ -75,15 +99,9 @@ class AttemptController extends Controller
             ];
         })->values();
 
-        // Paginate the combined results
-        $perPage = 5;
-        $currentPage = request()->get('page', 1);
-        $offset = ($currentPage - 1) * $perPage;
-        $items = $combined->slice($offset, $perPage)->values();
-
         $answers = new \Illuminate\Pagination\LengthAwarePaginator(
-            $items,
-            $combined->count(),
+            $combined,
+            $totalQuestions,
             $perPage,
             $currentPage,
             ['path' => request()->url(), 'query' => request()->query()]
@@ -92,6 +110,7 @@ class AttemptController extends Controller
         return Inertia::render('student/Attempts/Show', [
             'attempt' => $attempt,
             'answers' => $answers,
+            'questions_index' => $questionsIndex, // Minimal data for navigation
         ]);
     }
 

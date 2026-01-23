@@ -1,4 +1,5 @@
 import { Head, Link, router, useForm } from "@inertiajs/react";
+import { useEffect } from "react";
 import StudentLayout from "@/layouts/student";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,9 +62,22 @@ export default function QuizTake({
     const isFirstQuestion = qIndex === 0;
     const isLastQuestion = qIndex === questions.length - 1;
 
+    // Reset form when question changes - Inertia-native approach
+    // Using useEffect ensures form resets when question.id changes (new question loaded)
+    useEffect(() => {
+        form.reset();
+        form.setData("answer", selectedAnswer || "");
+    }, [question.id]); // Reset when question ID changes
+
     const handleNext = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!form.data.answer) return;
+        const currentAnswer = form.data.answer;
+        if (!currentAnswer || currentAnswer === "") {
+            router.visit(
+                route("student.attempts.take.single", [attempt.id, qIndex + 1])
+            );
+            return;
+        }
 
         form.post(
             route("student.attempts.submit.single", [attempt.id, qIndex])
@@ -133,9 +147,7 @@ export default function QuizTake({
                                 }
                             >
                                 <Flag
-                                    className={`h-5 w-5 ${
-                                        isFlagged ? "fill-current" : ""
-                                    }`}
+                                    className={`h-5 w-5 ${isFlagged ? "fill-current" : ""}`}
                                 />
                             </Button>
                         </div>
@@ -214,11 +226,10 @@ export default function QuizTake({
                                             type="button"
                                             onClick={handleNext}
                                             disabled={
-                                                !form.data.answer ||
                                                 form.processing
                                             }
                                         >
-                                            Next
+                                            {form.data.answer ? "Next" : "Skip"}
                                             <ChevronRight className="ml-2 h-4 w-4" />
                                         </Button>
                                     )}

@@ -20,7 +20,7 @@ class TagController extends Controller
         $tags = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
 
         // For Inertia response
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return \Inertia\Inertia::render('admin/Tags/Index', [
                 'tags' => $tags,
                 'filters' => $request->only(['search']),
@@ -80,7 +80,7 @@ class TagController extends Controller
         }
 
         // For Inertia requests (only if NOT a quick create)
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return redirect()
                 ->route('admin.tags.index')
                 ->with('success', 'Tag created successfully');
@@ -99,7 +99,7 @@ class TagController extends Controller
         }
 
         // For Inertia requests
-        if ($this->wantsInertiaResponse(request())) {
+        if (request()->inertia()) {
             return \Inertia\Inertia::render('admin/Tags/Show', [
                 'tag' => [
                     'id' => $tag->id,
@@ -141,7 +141,7 @@ class TagController extends Controller
         $tag->save();
 
         // For Inertia requests
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return redirect()
                 ->route('admin.tags.index')
                 ->with('success', 'Tag updated successfully');
@@ -162,7 +162,7 @@ class TagController extends Controller
         $tag->delete();
 
         // For Inertia requests
-        if ($this->wantsInertiaResponse(request())) {
+        if (request()->inertia()) {
             return redirect()
                 ->route('admin.tags.index')
                 ->with('success', 'Tag deleted successfully');
@@ -182,7 +182,7 @@ class TagController extends Controller
         $ids = $request->ids;
         $deleted = Tag::whereIn('id', $ids)->delete();
 
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return redirect()
                 ->route('admin.tags.index')
                 ->with('success', "{$deleted} tag(s) deleted successfully");

@@ -17,6 +17,7 @@ class DashboardController extends Controller
         $mixedBagQuizzes = Quiz::where('mode', 'mixed_bag')
             ->whereHas('questions')
             ->with('subject')
+            ->withCount('questions')
             ->get();
         $lastAttempts = QuizAttempt::with('quiz.questions')
             ->where('student_id', Auth::id())

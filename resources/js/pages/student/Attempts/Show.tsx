@@ -7,6 +7,7 @@ import { route } from "ziggy-js";
 import { CheckCircle2, XCircle, Circle, Flag } from "lucide-react";
 import { SmartPagination } from "@/components/common/SmartPagination";
 import { SubjectBadge } from "@/components/common/SubjectBadge";
+import { cn } from "@/lib/utils";
 
 interface Subject {
     id: number;
@@ -24,6 +25,7 @@ interface Question {
     question_text: string;
     subject: Subject | null;
     options: Option[];
+    explanations?: Record<string, string>;
 }
 
 interface Answer {
@@ -48,6 +50,14 @@ interface Attempt {
     quiz: Quiz;
 }
 
+interface QuestionIndex {
+    id: number;
+    index: number;
+    page: number;
+    is_answered: boolean;
+    is_correct: boolean | null;
+}
+
 interface Props {
     attempt: Attempt;
     answers: {
@@ -66,9 +76,10 @@ interface Props {
         prev_page_url: string | null;
         next_page_url: string | null;
     };
+    questions_index: QuestionIndex[];
 }
 
-export default function AttemptsShow({ attempt, answers }: Props) {
+export default function AttemptsShow({ attempt, answers, questions_index }: Props) {
     const handlePageChange = (url: string | null) => {
         if (url) {
             router.visit(url, {
@@ -76,6 +87,47 @@ export default function AttemptsShow({ attempt, answers }: Props) {
                 preserveScroll: true,
             });
         }
+    };
+
+    const scrollToQuestion = (questionId: number) => {
+        const element = document.getElementById(`question-${questionId}`);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
+    const navigateToQuestion = (questionId: number, page: number) => {
+        // Navigate to the page containing the question
+        const url = answers.links.find(
+            (link) => link.label === String(page) && link.url,
+        )?.url;
+
+        if (url) {
+            router.visit(url, {
+                preserveState: true,
+                preserveScroll: false,
+                onSuccess: () => {
+                    // Scroll to question after page loads
+                    setTimeout(() => {
+                        scrollToQuestion(questionId);
+                    }, 100);
+                },
+            });
+        } else {
+            // If already on the page, just scroll
+            scrollToQuestion(questionId);
+        }
+    };
+
+    const getQuestionColor = (q: QuestionIndex) => {
+        console.log(q);
+        if (!q.is_answered) {
+            return 'text-gray-500 border-gray-500'; // Gray for unanswered
+        }
+        if (q.is_correct === true) {
+            return 'text-green-500 border-green-500'; // Green for correct
+        }
+        return 'text-red-500 border-red-500'; // Red for incorrect
     };
 
     return (
@@ -89,7 +141,7 @@ export default function AttemptsShow({ attempt, answers }: Props) {
                         </h1>
                         <div className="flex flex-wrap gap-4 text-sm">
                             <span className="text-muted-foreground">
-                                Score: <strong>{attempt.score}</strong>
+                                Total: <strong>{questions_index.length}</strong>
                             </span>
                             <span className="text-muted-foreground">
                                 Correct:{" "}
@@ -119,6 +171,28 @@ export default function AttemptsShow({ attempt, answers }: Props) {
                     </div>
                 </div>
 
+                {/* Question Navigation */}
+                {questions_index && questions_index.length > 0 && (
+                    <Card>
+                        <CardContent className="p-0 flex flex-wrap gap-2">
+                            {questions_index.map((q, index) => (
+                                <button
+                                    key={q.id}
+                                    onClick={() => navigateToQuestion(q.id, q.page)}
+                                    className={cn(
+                                        'w-7 h-7 rounded-full border-2 flex items-center justify-center text-sm font-bold text-white transition-all hover:scale-110 shadow-sm',
+                                        getQuestionColor(q),
+                                        answers.current_page === q.page && 'ring-2 ring-blue-500 ring-offset-2'
+                                    )}
+                                    title={`Question ${q.index}${q.is_answered ? (q.is_correct ? ' (Correct)' : ' (Incorrect)') : ' (Unanswered)'}`}
+                                >
+                                    {index + 1}
+                                </button>
+                            ))}
+                        </CardContent>
+                    </Card>
+                )}
+
                 <div className="space-y-4">
                     {answers.data.length === 0 ? (
                         <Card>
@@ -138,6 +212,7 @@ export default function AttemptsShow({ attempt, answers }: Props) {
 
                             return (
                                 <Card
+                                    id={`question-${answer.question_id}`}
                                     key={
                                         answer.id ||
                                         `question-${answer.question_id}`
@@ -162,24 +237,22 @@ export default function AttemptsShow({ attempt, answers }: Props) {
                                                         router.delete(
                                                             route(
                                                                 "student.questions.unflag",
-                                                                question.id
+                                                                question.id,
                                                             ),
                                                             {
-                                                                preserveScroll:
-                                                                    true,
-                                                            }
+                                                                preserveScroll: true,
+                                                            },
                                                         );
                                                     } else {
                                                         router.post(
                                                             route(
                                                                 "student.questions.flag",
-                                                                question.id
+                                                                question.id,
                                                             ),
                                                             {},
                                                             {
-                                                                preserveScroll:
-                                                                    true,
-                                                            }
+                                                                preserveScroll: true,
+                                                            },
                                                         );
                                                     }
                                                 }}
@@ -190,11 +263,10 @@ export default function AttemptsShow({ attempt, answers }: Props) {
                                                 }
                                             >
                                                 <Flag
-                                                    className={`h-5 w-5 ${
-                                                        answer.is_flagged
-                                                            ? "fill-current"
-                                                            : ""
-                                                    }`}
+                                                    className={`h-5 w-5 ${answer.is_flagged
+                                                        ? "fill-current"
+                                                        : ""
+                                                        }`}
                                                 />
                                             </Button>
                                         </div>
@@ -208,50 +280,93 @@ export default function AttemptsShow({ attempt, answers }: Props) {
                                             const isSelected =
                                                 option.id === selectedId;
                                             const isCorrect = option.is_correct;
+                                            const studentAnswered = selectedId !== null;
+
+                                            // تحديد لون النص والخلفية
+                                            let textColor =
+                                                "text-muted-foreground";
+                                            let IconComponent = Circle;
+
+                                            if (studentAnswered) {
+                                                // Student answered - show check/X based on selection
+                                                if (isSelected && isCorrect) {
+                                                    textColor = "text-green-600";
+                                                    IconComponent = CheckCircle2;
+                                                } else if (
+                                                    isSelected &&
+                                                    !isCorrect
+                                                ) {
+                                                    textColor = "text-red-600";
+                                                    IconComponent = XCircle;
+                                                } else if (isCorrect) {
+                                                    // Correct answer but not selected
+                                                    textColor = "text-green-600";
+                                                    IconComponent = Circle;
+                                                }
+                                            } else {
+                                                // Student didn't answer - only show color for correct option
+                                                if (isCorrect) {
+                                                    textColor = "text-green-600";
+                                                }
+                                                IconComponent = Circle;
+                                            }
 
                                             return (
                                                 <div
                                                     key={option.id}
-                                                    className="flex items-center gap-2 p-2 rounded border"
+                                                    className={`flex items-center gap-2 p-2 rounded border`}
                                                 >
                                                     <span>
-                                                        {isCorrect ? (
-                                                            <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                                        ) : isSelected &&
-                                                          !isCorrect ? (
-                                                            <XCircle className="h-5 w-5 text-red-600" />
-                                                        ) : (
-                                                            <Circle className="h-5 w-5 text-muted-foreground" />
-                                                        )}
+                                                        <IconComponent
+                                                            className={`h-5 w-5 ${textColor}`}
+                                                        />
                                                     </span>
                                                     <span
-                                                        className={`flex-1 ${
-                                                            isSelected ||
-                                                            isCorrect
-                                                                ? "font-bold"
-                                                                : ""
-                                                        } ${
-                                                            isCorrect
-                                                                ? "text-green-600"
-                                                                : isSelected &&
-                                                                  !isCorrect
-                                                                ? "text-red-600"
-                                                                : ""
-                                                        }`}
+                                                        className={`flex-1 font-bold ${textColor}`}
                                                     >
                                                         {option.option_text}
-                                                        {isCorrect ? (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="ml-2 text-green-600"
-                                                            >
-                                                                Correct
-                                                            </Badge>
-                                                        ) : null}
+                                                        {isCorrect &&
+                                                            !isSelected &&
+                                                            studentAnswered && (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="ml-2 text-green-600"
+                                                                >
+                                                                    Correct
+                                                                </Badge>
+                                                            )}
                                                     </span>
                                                 </div>
                                             );
                                         })}
+
+                                        {/* Explanation */}
+                                        {answer.question.explanations &&
+                                            Object.keys(
+                                                answer.question.explanations,
+                                            ).length > 0 && (
+                                                <div className="pt-4 border-t space-y-2">
+                                                    <h4 className="font-semibold text-sm">
+                                                        Explanation:
+                                                    </h4>
+                                                    {Object.entries(
+                                                        answer.question
+                                                            .explanations,
+                                                    ).map(([key, value]) => (
+                                                        <div
+                                                            key={key}
+                                                            className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md"
+                                                        >
+                                                            <strong className={cn("text-foreground", {
+                                                                "hidden": key === "correct" || key === "wrong"
+                                                            })}>
+                                                                {key} :
+                                                            </strong>
+                                                            {value}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                     </CardContent>
                                 </Card>
                             );
@@ -266,7 +381,7 @@ export default function AttemptsShow({ attempt, answers }: Props) {
                         onPageChange={(page) => {
                             const url = answers.links.find(
                                 (link) =>
-                                    link.label === String(page) && link.url
+                                    link.label === String(page) && link.url,
                             )?.url;
                             if (url) handlePageChange(url);
                         }}

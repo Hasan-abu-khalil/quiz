@@ -8,30 +8,11 @@ use Illuminate\Http\Request;
 trait HandlesInertiaRequests
 {
     /**
-     * Determine if the request should return an Inertia response.
-     */
-    protected function wantsInertiaResponse(Request $request): bool
-    {
-        // Check for X-Inertia header (case-insensitive)
-        $hasInertiaHeader = $request->header('X-Inertia') || $request->header('x-inertia');
-
-        if ($hasInertiaHeader) {
-            return true;
-        }
-
-        // If this is an admin route (/admin/*), prefer Inertia unless it's a DataTables request
-        $isAdminRoute = str_starts_with($request->path(), 'admin');
-        $isDataTablesRequest = $request->ajax() && $request->has('draw');
-
-        return $isAdminRoute && ! $isDataTablesRequest;
-    }
-
-    /**
      * Determine if the request is a DataTables AJAX request.
      */
     protected function isDataTablesRequest(Request $request): bool
     {
-        return $request->ajax() && $request->has('draw') && ! $this->wantsInertiaResponse($request);
+        return $request->ajax() && $request->has('draw') && ! $request->inertia();
     }
 
     /**
@@ -50,7 +31,7 @@ trait HandlesInertiaRequests
         string $errorMessage,
         array $routeParams = []
     ): RedirectResponse {
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia()) {
             return redirect()
                 ->route($routeName, array_merge($routeParams, $request->only(['tab', 'search', 'subject_id', 'page'])))
                 ->with('error', $errorMessage);
@@ -79,7 +60,7 @@ trait HandlesInertiaRequests
         string $errorMessage,
         ?callable $shouldRedirectBack = null
     ): RedirectResponse {
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia()) {
             $shouldGoBack = $shouldRedirectBack
                 ? $shouldRedirectBack($request, $resourceId)
                 : $this->defaultShouldRedirectBack($request, $resourceId);

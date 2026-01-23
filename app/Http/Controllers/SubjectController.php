@@ -147,7 +147,7 @@ class SubjectController extends Controller
         $ids = $request->ids;
         $deleted = Subject::whereIn('id', $ids)->delete();
 
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return redirect()
                 ->route('admin.subjects.index')
                 ->with('success', "{$deleted} subject(s) deleted successfully");

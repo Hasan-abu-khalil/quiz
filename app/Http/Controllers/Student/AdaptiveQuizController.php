@@ -451,7 +451,7 @@ class AdaptiveQuizController extends Controller
             'is_public' => ! $assignment->is_public,
         ]);
 
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             return redirect()
                 ->back()
                 ->with('success', $assignment->is_public

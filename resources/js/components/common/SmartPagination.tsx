@@ -132,11 +132,10 @@ export function SmartPagination({
                         <button
                             key={pageNum}
                             onClick={() => handlePageClick(pageNum)}
-                            className={`px-3 py-1 rounded border text-sm ${
-                                currentPage === pageNum
+                            className={`px-3 py-1 rounded border text-sm ${currentPage === pageNum
                                     ? "bg-blue-600 text-white"
-                                    : "hover:bg-gray-100"
-                            }`}
+                                    : "hover:bg-gray-100 hover:text-black"
+                                }`}
                         >
                             {pageNum}
                         </button>

@@ -1,4 +1,4 @@
-import { Head, Link, router } from "@inertiajs/react";
+import { Head, router } from "@inertiajs/react";
 import StudentLayout from "@/layouts/student";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { SmartPagination } from "@/components/common/SmartPagination";
 import { SubjectBadge } from "@/components/common/SubjectBadge";
 import { useState } from "react";
-import { ArrowLeft, Flag, Eye, EyeOff, X } from "lucide-react";
+import {
+    ArrowLeft,
+    Flag,
+    Eye,
+    EyeOff,
+    X,
+    CheckCircle2,
+    XCircle,
+    Circle,
+} from "lucide-react";
 import { route } from "ziggy-js";
 
 interface Subject {
@@ -17,7 +26,7 @@ interface Subject {
 interface Option {
     id: number;
     option_text: string;
-    is_correct: boolean | number; // true/false or 1/0 from database
+    is_correct: boolean | number;
 }
 
 interface Question {
@@ -25,6 +34,8 @@ interface Question {
     question_text: string;
     subject: Subject | null;
     options: Option[];
+    selected_option_id: number | null;
+    is_correct: boolean | null;
     explanations?: Record<string, string>;
 }
 
@@ -37,29 +48,33 @@ interface Props {
         total: number;
         from: number;
         to: number;
-        links: Array<{
-            url: string | null;
-            label: string;
-            active: boolean;
-        }>;
+        links: Array<{ url: string | null; label: string; active: boolean }>;
         prev_page_url: string | null;
         next_page_url: string | null;
     };
+    subjects: Subject[];
+    filters: {
+        subject_id?: string;
+    };
 }
 
-export default function FlaggedQuestions({ questions }: Props) {
+export default function FlaggedQuestions({
+    questions,
+    subjects,
+    filters,
+}: Props) {
     const [revealedQuestions, setRevealedQuestions] = useState<Set<number>>(
-        new Set()
+        new Set(),
+    );
+    const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(
+        filters.subject_id || "all",
     );
 
     const toggleReveal = (questionId: number) => {
         setRevealedQuestions((prev) => {
             const newSet = new Set(prev);
-            if (newSet.has(questionId)) {
-                newSet.delete(questionId);
-            } else {
-                newSet.add(questionId);
-            }
+            if (newSet.has(questionId)) newSet.delete(questionId);
+            else newSet.add(questionId);
             return newSet;
         });
     };
@@ -72,11 +87,24 @@ export default function FlaggedQuestions({ questions }: Props) {
 
     const handlePageChange = (url: string | null) => {
         if (url) {
-            router.visit(url, {
-                preserveState: true,
-                preserveScroll: true,
-            });
+            router.visit(url, { preserveState: true, preserveScroll: true });
         }
+    };
+
+    const handleSubjectFilter = (subjectId: string | number | null) => {
+        const subjectIdStr =
+            subjectId === null || subjectId === "all" ? "all" : String(subjectId);
+        setSelectedSubjectId(subjectIdStr);
+
+        const params: Record<string, string> = {};
+        if (subjectIdStr !== "all") {
+            params.subject_id = subjectIdStr;
+        }
+
+        router.get(route("student.questions.flagged"), params, {
+            preserveState: true,
+            preserveScroll: true,
+        });
     };
 
     return (
@@ -114,6 +142,41 @@ export default function FlaggedQuestions({ questions }: Props) {
                     </div>
                 </div>
 
+                {/* Subject Filter Badges */}
+                {subjects.length > 0 && (
+                    <div className="mb-6">
+                        <div className="flex flex-wrap gap-2">
+                            <Badge
+                                variant={
+                                    selectedSubjectId === "all"
+                                        ? "default"
+                                        : "outline"
+                                }
+                                className="cursor-pointer hover:bg-primary/10"
+                                onClick={() => handleSubjectFilter("all")}
+                            >
+                                All
+                            </Badge>
+                            {subjects.map((subject) => (
+                                <Badge
+                                    key={subject.id}
+                                    variant={
+                                        selectedSubjectId === String(subject.id)
+                                            ? "default"
+                                            : "outline"
+                                    }
+                                    className="cursor-pointer hover:bg-primary/10"
+                                    onClick={() =>
+                                        handleSubjectFilter(subject.id)
+                                    }
+                                >
+                                    {subject.name}
+                                </Badge>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {questions.data.length === 0 ? (
                     <Card>
                         <CardContent className="py-12 text-center">
@@ -139,17 +202,8 @@ export default function FlaggedQuestions({ questions }: Props) {
                         <div className="space-y-4 mb-6">
                             {questions.data.map((question, qIndex) => {
                                 const isRevealed = revealedQuestions.has(
-                                    question.id
+                                    question.id,
                                 );
-                                // When revealed, find the correct option
-                                const correctOption = isRevealed
-                                    ? question.options.find(
-                                          (opt) =>
-                                              opt.is_correct === true ||
-                                              opt.is_correct === 1
-                                      )
-                                    : null;
-
                                 return (
                                     <Card key={question.id}>
                                         <CardHeader>
@@ -177,12 +231,12 @@ export default function FlaggedQuestions({ questions }: Props) {
                                                     size="icon"
                                                     onClick={() =>
                                                         handleUnflag(
-                                                            question.id
+                                                            question.id,
                                                         )
                                                     }
-                                                    className="text-red-500 hover:text-red-700"
+                                                    className="text-yellow-500"
                                                 >
-                                                    <X className="h-4 w-4" />
+                                                    <Flag className="h-4 w-4 fill-current" />
                                                 </Button>
                                             </div>
                                         </CardHeader>
@@ -191,83 +245,134 @@ export default function FlaggedQuestions({ questions }: Props) {
                                             <div className="space-y-2">
                                                 {question.options.map(
                                                     (option) => {
-                                                        // Check if this option is correct (only show when revealed)
-                                                        const isCorrect =
-                                                            isRevealed &&
-                                                            (option.is_correct ===
-                                                                true ||
-                                                                option.is_correct ===
-                                                                    1);
+                                                        const isSelected =
+                                                            option.id ===
+                                                            question.selected_option_id;
+                                                        const isCorrectOption =
+                                                            option.is_correct ===
+                                                            true ||
+                                                            option.is_correct ===
+                                                            1;
+                                                        const studentAnswered =
+                                                            question.selected_option_id !==
+                                                            null;
+
+                                                        let bgClass =
+                                                            "bg-background border-border";
+                                                        let textClass =
+                                                            "text-muted-foreground";
+                                                        let IconComponent =
+                                                            Circle;
+
+                                                        if (isRevealed) {
+                                                            if (studentAnswered) {
+                                                                // Student answered - show check/X based on selection
+                                                                if (
+                                                                    isSelected &&
+                                                                    isCorrectOption
+                                                                ) {
+                                                                    textClass =
+                                                                        "text-green-600";
+                                                                    IconComponent =
+                                                                        CheckCircle2;
+                                                                } else if (
+                                                                    isSelected &&
+                                                                    !isCorrectOption
+                                                                ) {
+                                                                    textClass =
+                                                                        "text-red-600";
+                                                                    IconComponent =
+                                                                        XCircle;
+                                                                } else if (
+                                                                    isCorrectOption
+                                                                ) {
+                                                                    // Correct answer but not selected
+                                                                    textClass =
+                                                                        "text-green-600";
+                                                                    IconComponent =
+                                                                        Circle;
+                                                                }
+                                                            } else {
+                                                                // Student didn't answer - only show color for correct option
+                                                                if (
+                                                                    isCorrectOption
+                                                                ) {
+                                                                    textClass =
+                                                                        "text-green-600";
+                                                                }
+                                                                IconComponent =
+                                                                    Circle;
+                                                            }
+                                                        }
+
                                                         return (
                                                             <div
                                                                 key={option.id}
-                                                                className={`p-3 rounded-md border ${
-                                                                    isCorrect
-                                                                        ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800"
-                                                                        : "bg-background border-border"
-                                                                }`}
+                                                                className={`p-3 rounded-md border ${bgClass}`}
                                                             >
                                                                 <div className="flex items-center gap-2">
+                                                                    <IconComponent
+                                                                        className={`h-5 w-5 ${textClass}`}
+                                                                    />
                                                                     <span
-                                                                        className={`text-sm font-medium ${
-                                                                            isCorrect
-                                                                                ? "text-green-700 dark:text-green-300"
-                                                                                : "text-muted-foreground"
-                                                                        }`}
+                                                                        className={`text-sm font-medium ${textClass}`}
                                                                     >
                                                                         {
                                                                             option.option_text
                                                                         }
                                                                     </span>
-                                                                    {isCorrect && (
-                                                                        <Badge className="bg-green-500 text-white">
-                                                                            Correct
-                                                                        </Badge>
-                                                                    )}
+                                                                    {isRevealed &&
+                                                                        !isSelected &&
+                                                                        isCorrectOption &&
+                                                                        studentAnswered && (
+                                                                            <Badge className="bg-green-500 text-white ml-2">
+                                                                                Correct
+                                                                            </Badge>
+                                                                        )}
                                                                 </div>
                                                             </div>
                                                         );
-                                                    }
+                                                    },
                                                 )}
                                             </div>
 
-                                            {/* Reveal/Show Answer Button */}
+                                            {/* Reveal/Hide Answer */}
                                             <div className="flex items-center justify-between pt-2 border-t">
                                                 <Button
                                                     variant="outline"
                                                     onClick={() =>
                                                         toggleReveal(
-                                                            question.id
+                                                            question.id,
                                                         )
                                                     }
                                                     className="flex items-center gap-2"
                                                 >
                                                     {isRevealed ? (
                                                         <>
-                                                            <EyeOff className="h-4 w-4" />
+                                                            <EyeOff className="h-4 w-4" />{" "}
                                                             Hide Answer
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <Eye className="h-4 w-4" />
+                                                            <Eye className="h-4 w-4" />{" "}
                                                             Reveal Answer
                                                         </>
                                                     )}
                                                 </Button>
                                             </div>
 
-                                            {/* Explanation (shown when revealed) */}
+                                            {/* Explanation */}
                                             {isRevealed &&
                                                 question.explanations &&
                                                 Object.keys(
-                                                    question.explanations
+                                                    question.explanations,
                                                 ).length > 0 && (
                                                     <div className="pt-4 border-t space-y-2">
                                                         <h4 className="font-semibold text-sm">
                                                             Explanation:
                                                         </h4>
                                                         {Object.entries(
-                                                            question.explanations
+                                                            question.explanations,
                                                         ).map(
                                                             ([key, value]) => (
                                                                 <div
@@ -279,7 +384,7 @@ export default function FlaggedQuestions({ questions }: Props) {
                                                                     </strong>
                                                                     : {value}
                                                                 </div>
-                                                            )
+                                                            ),
                                                         )}
                                                     </div>
                                                 )}
@@ -295,7 +400,7 @@ export default function FlaggedQuestions({ questions }: Props) {
                             onPageChange={(page) => {
                                 const url = questions.links.find(
                                     (link) =>
-                                        link.label === String(page) && link.url
+                                        link.label === String(page) && link.url,
                                 )?.url;
                                 if (url) handlePageChange(url);
                             }}

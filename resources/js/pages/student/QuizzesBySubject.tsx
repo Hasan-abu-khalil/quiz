@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { route } from "ziggy-js";
-import { Clock, BookOpen, Eye } from "lucide-react";
+import { Clock, BookOpen, Eye, ArrowLeft } from "lucide-react";
 import { SmartPagination } from "@/components/common/SmartPagination";
 
 interface Subject {
@@ -54,16 +54,32 @@ export default function QuizzesBySubject({ subject, quizzes }: Props) {
         <StudentLayout title={`${subject.name} Quizzes`}>
             <Head title={`${subject.name} Quizzes`} />
             <div className="space-y-6">
-                <div>
-                    <h1 className="text-3xl font-bold mb-2">
-                        {subject.name} Quizzes
-                    </h1>
-                    <p className="text-muted-foreground">
-                        Choose a quiz to start.
-                    </p>
+                <div className="flex justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold mb-2">
+                            {subject.name} Quizzes
+                        </h1>
+                        <p className="text-muted-foreground">
+                            Choose a quiz to start.
+                        </p>
+                    </div>
+                    <div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="mb-4"
+                        >
+                            <Link href={route("student.dashboard")}>
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Back to Dashboard
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
 
-                {quizzes.data.filter((q) => q.questions.length > 0).length === 0 ? (
+                {quizzes.data.filter((q) => q.questions.length > 0).length ===
+                    0 ? (
                     <p className="text-muted-foreground">
                         No quizzes available in this subject.
                     </p>
@@ -73,7 +89,10 @@ export default function QuizzesBySubject({ subject, quizzes }: Props) {
                             {quizzes.data
                                 .filter((quiz) => quiz.questions.length > 0)
                                 .map((quiz) => (
-                                    <Card key={quiz.id} className="flex flex-col">
+                                    <Card
+                                        key={quiz.id}
+                                        className="flex flex-col"
+                                    >
                                         <CardHeader>
                                             <CardTitle>{quiz.title}</CardTitle>
                                         </CardHeader>
@@ -83,22 +102,28 @@ export default function QuizzesBySubject({ subject, quizzes }: Props) {
                                                     .split("_")
                                                     .map(
                                                         (word) =>
-                                                            word.charAt(0).toUpperCase() +
-                                                            word.slice(1)
+                                                            word
+                                                                .charAt(0)
+                                                                .toUpperCase() +
+                                                            word.slice(1),
                                                     )
                                                     .join(" ")}
                                             </Badge>
                                             {quiz.time_limit_minutes && (
                                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                                     <Clock className="h-4 w-4" />
-                                                    {quiz.time_limit_minutes} min
+                                                    {quiz.time_limit_minutes}{" "}
+                                                    min
                                                 </div>
                                             )}
-                                            <Button asChild className="w-full mt-auto">
+                                            <Button
+                                                asChild
+                                                className="w-full mt-auto"
+                                            >
                                                 <Link
                                                     href={route(
                                                         "student.quizzes.show",
-                                                        quiz.id
+                                                        quiz.id,
                                                     )}
                                                 >
                                                     <Eye className="mr-2 h-4 w-4" />
@@ -117,7 +142,8 @@ export default function QuizzesBySubject({ subject, quizzes }: Props) {
                                 onPageChange={(page) => {
                                     const url = quizzes.links.find(
                                         (link) =>
-                                            link.label === String(page) && link.url
+                                            link.label === String(page) &&
+                                            link.url,
                                     )?.url;
                                     if (url) handlePageChange(url);
                                 }}

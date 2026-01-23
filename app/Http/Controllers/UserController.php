@@ -15,7 +15,7 @@ class UserController extends Controller
         $query = User::with('roles');
 
         // Apply search filter if exists
-        if ($request->has('search') && !empty($request->search)) {
+        if ($request->has('search') && ! empty($request->search)) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
@@ -25,7 +25,7 @@ class UserController extends Controller
         }
 
         // For Inertia requests: paginate after filtering
-        if ($this->wantsInertiaResponse($request)) {
+        if ($request->inertia($request)) {
             $users = $query->orderBy('id', 'desc')->paginate(10)->withQueryString();
 
             return \Inertia\Inertia::render('admin/Users/Index', [
@@ -33,7 +33,6 @@ class UserController extends Controller
                 'filters' => $request->only(['search']),
             ]);
         }
-
 
         // Check if this is an AJAX request (DataTables) - but NOT Inertia
         if ($this->isDataTablesRequest($request)) {
@@ -44,9 +43,9 @@ class UserController extends Controller
                 ->addColumn('action', function ($row) {
                     return '
                     <div class="d-grid gap-2 d-md-block">
-                    <a href="javascript:void(0)" class="btn btn-info view" data-id="' . $row->id . '" data-toggle="tooltip" title="View">View</a>
+                    <a href="javascript:void(0)" class="btn btn-info view" data-id="'.$row->id.'" data-toggle="tooltip" title="View">View</a>
 
-                   <a href="javascript:void(0)" class="delete-user btn btn-danger" data-id="' . $row->id . '" data-toggle="tooltip" title="Delete">
+                   <a href="javascript:void(0)" class="delete-user btn btn-danger" data-id="'.$row->id.'" data-toggle="tooltip" title="Delete">
                      <i class="fas fa-trash"></i>
                     </a>
                    </div>';
@@ -62,7 +61,6 @@ class UserController extends Controller
     // <a href="javascript:void(0)" class="edit-user btn btn-primary btn-action" data-id="' . $row->id . '" data-toggle="tooltip" title="Edit">
     //     <i class="fas fa-pencil-alt"></i>
     // </a>
-
 
     public function updateRole(Request $request, User $user)
     {
@@ -106,7 +104,7 @@ class UserController extends Controller
     {
         $user = User::with('roles')->find($id);
 
-        if (!$user) {
+        if (! $user) {
             abort(404, 'User not found');
         }
 
@@ -144,7 +142,7 @@ class UserController extends Controller
     {
         $user = User::with('roles')->find($id);
 
-        if (!$user) {
+        if (! $user) {
             abort(404, 'User not found');
         }
 

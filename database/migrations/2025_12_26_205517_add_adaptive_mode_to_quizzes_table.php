@@ -11,6 +11,18 @@ return new class extends Migration
         DB::statement("ALTER TABLE quizzes MODIFY COLUMN mode ENUM('by_subject', 'mixed_bag', 'adaptive') DEFAULT 'by_subject'");
     }
 
+
+//     public function up(): void
+// {
+//     if (DB::getDriverName() === 'mysql') {
+//         DB::statement("
+//             ALTER TABLE quizzes
+//             MODIFY COLUMN mode
+//             ENUM('by_subject', 'mixed_bag', 'adaptive')
+//             DEFAULT 'by_subject'
+//         ");
+//     }
+// }
     /**
      * Reverse the migrations.
      */

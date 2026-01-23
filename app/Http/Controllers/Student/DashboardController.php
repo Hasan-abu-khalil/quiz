@@ -15,8 +15,7 @@ class DashboardController extends Controller
     {
         $subjects = Subject::whereHas('quizzes.questions')->paginate(6);
         $mixedBagQuizzes = Quiz::where('mode', 'mixed_bag')
-            ->whereHas('questions')
-            ->with('subject')
+            ->with('subject', 'questions')
             ->get();
         $lastAttempts = QuizAttempt::with('quiz.questions')
             ->where('student_id', Auth::id())

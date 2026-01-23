@@ -162,24 +162,22 @@ export default function AttemptsShow({ attempt, answers }: Props) {
                                                         router.delete(
                                                             route(
                                                                 "student.questions.unflag",
-                                                                question.id
+                                                                question.id,
                                                             ),
                                                             {
-                                                                preserveScroll:
-                                                                    true,
-                                                            }
+                                                                preserveScroll: true,
+                                                            },
                                                         );
                                                     } else {
                                                         router.post(
                                                             route(
                                                                 "student.questions.flag",
-                                                                question.id
+                                                                question.id,
                                                             ),
                                                             {},
                                                             {
-                                                                preserveScroll:
-                                                                    true,
-                                                            }
+                                                                preserveScroll: true,
+                                                            },
                                                         );
                                                     }
                                                 }}
@@ -208,39 +206,58 @@ export default function AttemptsShow({ attempt, answers }: Props) {
                                             const isSelected =
                                                 option.id === selectedId;
                                             const isCorrect = option.is_correct;
+                                            const studentIsCorrect =
+                                                answer.is_correct; // هل إجابة الطالب صحيحة؟
+
+                                            // تحديد لون النص والخلفية
+                                            let textColor =
+                                                "text-muted-foreground";
+
+                                            if (
+                                                isSelected &&
+                                                studentIsCorrect
+                                            ) {
+                                                textColor = "text-blue-600"; // الطالب اختار صحيح → أزرق
+                                            } else if (
+                                                isSelected &&
+                                                !studentIsCorrect
+                                            ) {
+                                                textColor = "text-red-600"; // الطالب اختار خاطئ → أحمر
+                                            } else if (
+                                                isCorrect &&
+                                                !studentIsCorrect
+                                            ) {
+                                                textColor = "text-green-600"; // الإجابة الصحيحة تظهر إذا أخطأ → أخضر
+                                            }
 
                                             return (
                                                 <div
                                                     key={option.id}
-                                                    className="flex items-center gap-2 p-2 rounded border"
+                                                    className={`flex items-center gap-2 p-2 rounded border`}
                                                 >
                                                     <span>
                                                         {isCorrect ? (
-                                                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                                            <CheckCircle2
+                                                                className={`h-5 w-5 ${textColor}`}
+                                                            />
                                                         ) : isSelected &&
                                                           !isCorrect ? (
-                                                            <XCircle className="h-5 w-5 text-red-600" />
+                                                            <XCircle
+                                                                className={`h-5 w-5 ${textColor}`}
+                                                            />
                                                         ) : (
-                                                            <Circle className="h-5 w-5 text-muted-foreground" />
+                                                            <Circle
+                                                                className={`h-5 w-5 ${textColor}`}
+                                                            />
                                                         )}
                                                     </span>
                                                     <span
-                                                        className={`flex-1 ${
-                                                            isSelected ||
-                                                            isCorrect
-                                                                ? "font-bold"
-                                                                : ""
-                                                        } ${
-                                                            isCorrect
-                                                                ? "text-green-600"
-                                                                : isSelected &&
-                                                                  !isCorrect
-                                                                ? "text-red-600"
-                                                                : ""
-                                                        }`}
+                                                        className={`flex-1 font-bold ${textColor}`}
                                                     >
                                                         {option.option_text}
-                                                        {isCorrect ? (
+                                                        {/* يمكن إبقاء علامة Correct إذا أحببت */}
+                                                        {isCorrect &&
+                                                        !studentIsCorrect ? (
                                                             <Badge
                                                                 variant="outline"
                                                                 className="ml-2 text-green-600"
@@ -266,7 +283,7 @@ export default function AttemptsShow({ attempt, answers }: Props) {
                         onPageChange={(page) => {
                             const url = answers.links.find(
                                 (link) =>
-                                    link.label === String(page) && link.url
+                                    link.label === String(page) && link.url,
                             )?.url;
                             if (url) handlePageChange(url);
                         }}

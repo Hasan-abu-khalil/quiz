@@ -8,6 +8,7 @@ use App\Models\Question;
 use App\Models\Quiz;
 use App\Models\QuizQuestion;
 use App\Models\Subject;
+use App\Models\Tag;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -20,9 +21,11 @@ class AdaptiveQuizController extends Controller
     public function create()
     {
         $subjects = Subject::orderBy('name')->get(['id', 'name']);
+        $tags = Tag::select('id', 'tag_text')->orderBy('tag_text')->get();
 
         return Inertia::render('student/Adaptive/Create', [
             'subjects' => $subjects,
+            'tags' => $tags,
         ]);
     }
 
@@ -43,6 +46,8 @@ class AdaptiveQuizController extends Controller
             'strategy' => 'required|in:worst_performing,never_attempted,recently_incorrect,weak_subjects,mixed',
             'subject_ids' => 'nullable|array',
             'subject_ids.*' => 'exists:subjects,id',
+            'tag_ids' => 'nullable|array',
+            'tag_ids.*' => 'exists:tags,id',
             'title' => 'nullable|string|max:255',
             'time_limit_minutes' => 'nullable|integer|min:1',
             'is_public' => 'nullable|boolean',
@@ -66,6 +71,19 @@ class AdaptiveQuizController extends Controller
 
         if (! empty($subjectIds)) {
             $query->whereIn('subject_id', $subjectIds);
+        }
+
+        // Filter by tag IDs if provided
+        $tagIds = $request->get('tag_ids', []);
+        if (! is_array($tagIds)) {
+            $tagIds = $tagIds ? [$tagIds] : [];
+        }
+        $tagIds = array_filter(array_map('intval', $tagIds));
+
+        if (! empty($tagIds)) {
+            $query->whereHas('tags', function ($q) use ($tagIds) {
+                $q->whereIn('tags.id', $tagIds);
+            });
         }
 
         $questions = collect();

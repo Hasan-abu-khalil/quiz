@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { DeleteQuestionDialog } from "./_components/DeleteQuestionDialog";
 import { SmartPagination } from "@/components/common/SmartPagination";
+import { TagCombobox } from "@/components/TagCombobox";
 import { ImportQuestionsDialog } from "./_components/ImportQuestionsDialog";
 import { useQuestionActions } from "@/hooks/useQuestionActions";
 import { useQuestionActionHandlers } from "@/hooks/useQuestionActionHandlers";
@@ -101,14 +102,16 @@ interface Props {
         to?: number;
     };
     subjects: Subject[];
+    tags: Tag[];
     filters: {
         search?: string;
         tab?: string;
         subject_id?: string;
+        tag_id?: string | string[];
     };
 }
 
-export default function Index({ questions, subjects, filters }: Props) {
+export default function Index({ questions, subjects, tags, filters }: Props) {
     const { auth } = usePage().props as any;
     const currentUser = auth?.user;
     const [activeTab, setActiveTab] = useState(filters.tab || "all");
@@ -116,6 +119,14 @@ export default function Index({ questions, subjects, filters }: Props) {
     const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(
         filters.subject_id ? parseInt(filters.subject_id) : null
     );
+    const [selectedTagIds, setSelectedTagIds] = useState<number[]>(
+        filters.tag_id
+            ? Array.isArray(filters.tag_id)
+                ? filters.tag_id.map((id) => parseInt(id))
+                : [parseInt(filters.tag_id)]
+            : []
+    );
+    const [availableTags, setAvailableTags] = useState<Tag[]>(tags);
     const [isMounted, setIsMounted] = useState(false);
 
     const getCurrentUrl = () => {
@@ -136,6 +147,7 @@ export default function Index({ questions, subjects, filters }: Props) {
         tab?: string;
         search?: string;
         subject_id?: number | null;
+        tag_ids?: number[] | null;
     }) => {
         const newTab = updates.tab !== undefined ? updates.tab : activeTab;
         const newSearch =
@@ -144,6 +156,10 @@ export default function Index({ questions, subjects, filters }: Props) {
             updates.subject_id !== undefined
                 ? updates.subject_id
                 : selectedSubjectId;
+        const newTagIds =
+            updates.tag_ids !== undefined
+                ? updates.tag_ids
+                : selectedTagIds;
 
         const params: any = {
             tab: newTab,
@@ -157,18 +173,55 @@ export default function Index({ questions, subjects, filters }: Props) {
             params.subject_id = newSubjectId;
         }
 
+        if (newTagIds && newTagIds.length > 0) {
+            params.tag_id = newTagIds;
+        }
+
         router.get("/admin/questions", params, {
             preserveState: true,
             replace: true,
         });
     };
 
+    // Fetch tags filtered by subject when subject changes
+    useEffect(() => {
+        if (selectedSubjectId) {
+            fetch(`/admin/questions/tags-by-subject/${selectedSubjectId}`)
+                .then((res) => {
+                    if (!res.ok) {
+                        throw new Error(`HTTP error! status: ${res.status}`);
+                    }
+                    return res.json();
+                })
+                .then((data: Tag[]) => {
+                    setAvailableTags(data);
+                    // Clear tag selection if current tags are not available for new subject
+                    const validTagIds = data.map((t) => t.id);
+                    const filteredTagIds = selectedTagIds.filter((id) =>
+                        validTagIds.includes(id)
+                    );
+                    if (filteredTagIds.length !== selectedTagIds.length) {
+                        setSelectedTagIds(filteredTagIds);
+                        updateFilters({
+                            tag_ids: filteredTagIds.length > 0 ? filteredTagIds : null,
+                        });
+                    }
+                })
+                .catch((error) => {
+                    console.error('Error fetching tags by subject:', error);
+                    setAvailableTags(tags);
+                });
+        } else {
+            setAvailableTags(tags);
+        }
+    }, [selectedSubjectId]);
+
     // Reset select all mode when filters change
     useEffect(() => {
         setSelectAllMode(false);
         setSelectedIds(new Set());
         setAllFilteredIds([]);
-    }, [activeTab, search, selectedSubjectId]);
+    }, [activeTab, search, selectedSubjectId, selectedTagIds]);
 
     useEffect(() => {
         if (!isMounted) {
@@ -198,6 +251,11 @@ export default function Index({ questions, subjects, filters }: Props) {
         updateFilters({ subject_id: subjectId });
     };
 
+    const handleTagFilter = (tagIds: number[]) => {
+        setSelectedTagIds(tagIds);
+        updateFilters({ tag_ids: tagIds.length > 0 ? tagIds : null });
+    };
+
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(
         null
@@ -217,7 +275,7 @@ export default function Index({ questions, subjects, filters }: Props) {
     });
 
     // Override delete to show dialog
-    const handleDelete = (question: { id: number; [key: string]: any }) => {
+    const handleDelete = (question: { id: number;[key: string]: any }) => {
         setSelectedQuestion(question as Question);
         setDeleteDialogOpen(true);
     };
@@ -251,6 +309,13 @@ export default function Index({ questions, subjects, filters }: Props) {
                     "subject_id",
                     selectedSubjectId.toString()
                 );
+            }
+            if (selectedTagIds.length > 0) {
+                // Remove existing tag_id params and add new ones
+                urlObj.searchParams.delete("tag_id");
+                selectedTagIds.forEach((tagId) => {
+                    urlObj.searchParams.append("tag_id", tagId.toString());
+                });
             }
             router.get(urlObj.pathname + urlObj.search);
         }
@@ -295,6 +360,11 @@ export default function Index({ questions, subjects, filters }: Props) {
             }
             if (selectedSubjectId) {
                 params.append("subject_id", selectedSubjectId.toString());
+            }
+            if (selectedTagIds.length > 0) {
+                selectedTagIds.forEach((tagId) => {
+                    params.append("tag_id", tagId.toString());
+                });
             }
 
             try {
@@ -637,7 +707,7 @@ export default function Index({ questions, subjects, filters }: Props) {
                                                 key={subject.id}
                                                 variant={
                                                     selectedSubjectId ===
-                                                    subject.id
+                                                        subject.id
                                                         ? "default"
                                                         : "outline"
                                                 }
@@ -651,10 +721,24 @@ export default function Index({ questions, subjects, filters }: Props) {
                                                 {subject.name}
                                                 {selectedSubjectId ===
                                                     subject.id && (
-                                                    <X className="h-3 w-3 ml-1" />
-                                                )}
+                                                        <X className="h-3 w-3 ml-1" />
+                                                    )}
                                             </Badge>
                                         ))}
+                                    </div>
+
+                                    {/* Tag Filter */}
+                                    <div className="grid gap-2">
+                                        <span className="text-sm text-muted-foreground">
+                                            Filter by Tag:
+                                        </span>
+                                        <TagCombobox
+                                            tags={availableTags}
+                                            selectedTagIds={selectedTagIds}
+                                            onSelectionChange={handleTagFilter}
+                                            placeholder="Search tags to filter..."
+                                            className="max-w-xs"
+                                        />
                                     </div>
                                 </div>
                                 <TabsContent value="all">
@@ -668,9 +752,9 @@ export default function Index({ questions, subjects, filters }: Props) {
                                                             (questions.data
                                                                 .length > 0 &&
                                                                 selectedIds.size ===
-                                                                    questions
-                                                                        .data
-                                                                        .length)
+                                                                questions
+                                                                    .data
+                                                                    .length)
                                                         }
                                                         onCheckedChange={
                                                             toggleSelectAll
@@ -715,7 +799,7 @@ export default function Index({ questions, subjects, filters }: Props) {
                                                     questions.current_page
                                                 }
                                                 totalPages={questions.last_page}
-                                                onPageChange={() => {}}
+                                                onPageChange={() => { }}
                                                 prevPageUrl={
                                                     questions.prev_page_url
                                                 }
@@ -746,6 +830,11 @@ export default function Index({ questions, subjects, filters }: Props) {
                                                             "subject_id",
                                                             selectedSubjectId.toString()
                                                         );
+                                                    }
+                                                    if (selectedTagIds.length > 0) {
+                                                        selectedTagIds.forEach((tagId) => {
+                                                            params.append("tag_id", tagId.toString());
+                                                        });
                                                     }
                                                     params.set(
                                                         "page",
@@ -776,9 +865,9 @@ export default function Index({ questions, subjects, filters }: Props) {
                                                             (questions.data
                                                                 .length > 0 &&
                                                                 selectedIds.size ===
-                                                                    questions
-                                                                        .data
-                                                                        .length)
+                                                                questions
+                                                                    .data
+                                                                    .length)
                                                         }
                                                         onCheckedChange={
                                                             toggleSelectAll
@@ -823,7 +912,7 @@ export default function Index({ questions, subjects, filters }: Props) {
                                                     questions.current_page
                                                 }
                                                 totalPages={questions.last_page}
-                                                onPageChange={() => {}}
+                                                onPageChange={() => { }}
                                                 prevPageUrl={
                                                     questions.prev_page_url
                                                 }
@@ -854,6 +943,11 @@ export default function Index({ questions, subjects, filters }: Props) {
                                                             "subject_id",
                                                             selectedSubjectId.toString()
                                                         );
+                                                    }
+                                                    if (selectedTagIds.length > 0) {
+                                                        selectedTagIds.forEach((tagId) => {
+                                                            params.append("tag_id", tagId.toString());
+                                                        });
                                                     }
                                                     params.set(
                                                         "page",
@@ -884,9 +978,9 @@ export default function Index({ questions, subjects, filters }: Props) {
                                                             (questions.data
                                                                 .length > 0 &&
                                                                 selectedIds.size ===
-                                                                    questions
-                                                                        .data
-                                                                        .length)
+                                                                questions
+                                                                    .data
+                                                                    .length)
                                                         }
                                                         onCheckedChange={
                                                             toggleSelectAll
@@ -931,7 +1025,7 @@ export default function Index({ questions, subjects, filters }: Props) {
                                                     questions.current_page
                                                 }
                                                 totalPages={questions.last_page}
-                                                onPageChange={() => {}}
+                                                onPageChange={() => { }}
                                                 prevPageUrl={
                                                     questions.prev_page_url
                                                 }
@@ -962,6 +1056,11 @@ export default function Index({ questions, subjects, filters }: Props) {
                                                             "subject_id",
                                                             selectedSubjectId.toString()
                                                         );
+                                                    }
+                                                    if (selectedTagIds.length > 0) {
+                                                        selectedTagIds.forEach((tagId) => {
+                                                            params.append("tag_id", tagId.toString());
+                                                        });
                                                     }
                                                     params.set(
                                                         "page",

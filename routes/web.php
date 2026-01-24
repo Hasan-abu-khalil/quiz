@@ -166,6 +166,10 @@ Route::middleware(['auth'])->group(function () {
             ->name('toggleVisibility');
     });
 
+    // Tags by subject (accessible to students for adaptive quiz creation)
+    Route::get('/student/questions/tags-by-subject/{subjectId?}', [\App\Http\Controllers\QuestionController::class, 'tagsBySubject'])
+        ->name('student.questions.tagsBySubject');
+
     // Show quiz info + "Start quiz" button
     Route::get('/student/quizzes/{quiz}', [StudentQuizController::class, 'show'])
         ->name('student.quizzes.show');

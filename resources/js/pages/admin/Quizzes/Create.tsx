@@ -13,6 +13,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import InputError from "@/components/input-error";
+import { TagCombobox } from "@/components/TagCombobox";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, Search, LoaderCircle } from "lucide-react";
 import { route } from "ziggy-js";
@@ -35,6 +36,11 @@ interface Question {
     };
 }
 
+interface Tag {
+    id: number;
+    tag_text: string;
+}
+
 interface Props {
     subjects: Subject[];
     questions: Question[];
@@ -54,16 +60,53 @@ export default function Create({ subjects, questions }: Props) {
     const [selectedSubjects, setSelectedSubjects] = React.useState<number[]>(
         []
     );
+    const [selectedTagIds, setSelectedTagIds] = React.useState<number[]>(
+        []
+    );
+    const [availableTags, setAvailableTags] = React.useState<Tag[]>([]);
     const [questionSearch, setQuestionSearch] = React.useState<string>("");
     const [isLoadingQuestions, setIsLoadingQuestions] =
         React.useState<boolean>(false);
 
-    // Load questions when subject is selected (for by_subject mode)
+    // Fetch tags when subject changes (for by_subject mode)
+    React.useEffect(() => {
+        if (form.data.mode === "by_subject" && form.data.subject_id) {
+            fetch(`/admin/questions/tags-by-subject/${form.data.subject_id}`)
+                .then((res) => res.json())
+                .then((data: Tag[]) => {
+                    setAvailableTags(data);
+                    // Clear tag selections that are not available for new subject
+                    const validTagIds = data.map((t) => t.id);
+                    setSelectedTagIds((prev) => 
+                        prev.filter((id) => validTagIds.includes(id))
+                    );
+                })
+                .catch(() => {
+                    setAvailableTags([]);
+                });
+        } else {
+            setAvailableTags([]);
+        }
+    }, [form.data.subject_id, form.data.mode]);
+
+    // Load questions when subject or tag is selected (for by_subject mode)
     React.useEffect(() => {
         if (form.data.mode === "by_subject") {
             if (form.data.subject_id) {
                 setIsLoadingQuestions(true);
-                fetch(route("admin.questions.bySubject", form.data.subject_id))
+                const url = new URL(
+                    `/admin/questions/by-subject/${form.data.subject_id}`,
+                    window.location.origin
+                );
+                if (selectedTagIds.length > 0) {
+                    selectedTagIds.forEach((tagId) => {
+                        url.searchParams.append("tag_id[]", String(tagId));
+                    });
+                } else {
+                    // Clear tag_id parameter if no tags selected
+                    url.searchParams.delete("tag_id");
+                }
+                fetch(url.toString())
                     .then((res) => res.json())
                     .then((data: Question[]) => {
                         if (!data.length) {
@@ -102,7 +145,7 @@ export default function Create({ subjects, questions }: Props) {
             setFilteredQuestions(questions);
             setIsLoadingQuestions(false);
         }
-    }, [form.data.subject_id, form.data.mode]);
+    }, [form.data.subject_id, form.data.mode, selectedTagIds]);
 
     // Handle randomize mode - clear questions when mode changes
     React.useEffect(() => {
@@ -396,6 +439,23 @@ export default function Create({ subjects, questions }: Props) {
                                         <InputError
                                             message={form.errors.subject_id}
                                         />
+
+                                        {/* Tag Filter - Only show when subject is selected */}
+                                        {form.data.subject_id &&
+                                            (
+                                                <div className="grid gap-2">
+                                                    <Label>Filter by Tag (Optional)</Label>
+                                                    <TagCombobox
+                                                        tags={availableTags}
+                                                        selectedTagIds={selectedTagIds}
+                                                        disabled={availableTags.length === 0}
+                                                        onSelectionChange={(tagIds) => {
+                                                            setSelectedTagIds(tagIds);
+                                                        }}
+                                                        placeholder="Search tags to filter..."
+                                                    />
+                                                </div>
+                                            )}
                                     </div>
                                 ) : (
                                     <div className="grid gap-2">

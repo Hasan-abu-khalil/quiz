@@ -30,12 +30,12 @@ class AttemptController extends Controller
         $attempt->load(['quiz']);
 
         // Load all quiz questions to ensure we have all questions even if not answered
-        $quiz = $attempt->quiz()->with('questions.options', 'questions.subject')->first();
+        $quiz = $attempt->quiz()->with('questions.options', 'questions.subject', 'questions.tags')->first();
         $allQuestions = $quiz->questions->keyBy('id');
 
         // Get all answers for this attempt with question relationships
         $allAnswers = $attempt->answers()
-            ->with(['question.options', 'question.subject'])
+            ->with(['question.options', 'question.subject', 'question.tags'])
             ->get()
             ->keyBy('question_id');
 
@@ -84,6 +84,12 @@ class AttemptController extends Controller
                         'id' => $question->subject->id,
                         'name' => $question->subject->name,
                     ] : null,
+                    'tags' => $question->tags->map(function ($tag) {
+                        return [
+                            'id' => $tag->id,
+                            'tag_text' => $tag->tag_text,
+                        ];
+                    })->toArray(),
                     'options' => $question->options->map(function ($option) {
                         return [
                             'id' => $option->id,

@@ -190,4 +190,18 @@ class TagController extends Controller
 
         return response()->json(['success' => "{$deleted} tag(s) deleted successfully"]);
     }
+
+    public function getIds(Request $request)
+    {
+        $query = Tag::query();
+
+        if ($request->has('search') && ! empty($request->search)) {
+            $search = $request->search;
+            $query->where('tag_text', 'like', "%{$search}%");
+        }
+
+        $ids = $query->pluck('id')->toArray();
+
+        return response()->json(['ids' => $ids]);
+    }
 }

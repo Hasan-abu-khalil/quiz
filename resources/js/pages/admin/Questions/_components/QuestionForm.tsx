@@ -15,6 +15,7 @@ import { QuickCreateTagDialog } from "./QuickCreateTagDialog";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useMemo, useEffect } from "react";
+import { TagCombobox } from "@/components/TagCombobox";
 
 interface Subject {
     id: number;
@@ -123,6 +124,44 @@ export function QuestionForm({
         setTags(initialTags);
     }, [initialTags]);
 
+    // Filter tags by selected subject
+    useEffect(() => {
+        if (form.data.subject_id) {
+            // Fetch tags filtered by subject
+            fetch(`/admin/questions/tags-by-subject/${form.data.subject_id}`)
+                .then((res) => {
+                    if (!res.ok) {
+                        throw new Error(`HTTP error! status: ${res.status}`);
+                    }
+                    return res.json();
+                })
+                .then((data: Tag[]) => {
+                    if (data) {
+                        setTags(data);
+                        // Remove tag selections that are no longer valid for this subject
+                        const validTagIds = data.map((t) => t.id);
+                        const filteredTagIds = form.data.tag_ids.filter((id) =>
+                            validTagIds.includes(id)
+                        );
+                        if (filteredTagIds.length !== form.data.tag_ids.length) {
+                            form.setData("tag_ids", filteredTagIds);
+                        }
+                    }
+                })
+                .catch((error) => {
+                    console.error('Error fetching tags by subject:', error);
+                    // If fetch fails, keep current tags
+                });
+        } else {
+            // If no subject selected, show all tags from initialTags
+            setTags(initialTags);
+            // Clear tag selections when no subject is selected
+            if (form.data.tag_ids.length > 0) {
+                form.setData("tag_ids", []);
+            }
+        }
+    }, [form.data.subject_id]);
+
     const handleSubmit = (e: React.FormEvent, approve: boolean = false) => {
         if (onApproveSubmitChange) {
             onApproveSubmitChange(false);
@@ -210,27 +249,9 @@ export function QuestionForm({
         form.clearErrors();
     };
 
-    const toggleTag = (tagId: number) => {
-        const currentTagIds = form.data.tag_ids;
-        if (currentTagIds.includes(tagId)) {
-            form.setData(
-                "tag_ids",
-                currentTagIds.filter((id) => id !== tagId)
-            );
-        } else {
-            form.setData("tag_ids", [...currentTagIds, tagId]);
-        }
+    const handleTagSelectionChange = (tagIds: number[]) => {
+        form.setData("tag_ids", tagIds);
     };
-
-    const sortedTags = useMemo(() => {
-        const selected = tags.filter((tag) =>
-            form.data.tag_ids.includes(tag.id)
-        );
-        const unselected = tags.filter(
-            (tag) => !form.data.tag_ids.includes(tag.id)
-        );
-        return [...selected, ...unselected];
-    }, [tags, form.data.tag_ids]);
 
     const updateOption = (
         index: number,
@@ -337,23 +358,22 @@ export function QuestionForm({
                                             }
                                             required
                                             rows={2}
-                                            placeholder={`Enter option ${
-                                                index + 1
-                                            } text...`}
+                                            placeholder={`Enter option ${index + 1
+                                                } text...`}
                                         />
                                     </div>
                                 </div>
                                 {form.errors[
                                     `options.${index}.option_text`
                                 ] && (
-                                    <InputError
-                                        message={
-                                            form.errors[
+                                        <InputError
+                                            message={
+                                                form.errors[
                                                 `options.${index}.option_text`
-                                            ]
-                                        }
-                                    />
-                                )}
+                                                ]
+                                            }
+                                        />
+                                    )}
                             </div>
                         ))}
                     </div>
@@ -375,37 +395,12 @@ export function QuestionForm({
                             Create Tag
                         </Button>
                     </div>
-                    <div className="max-h-40 overflow-y-auto border rounded-md p-3 space-y-2">
-                        {sortedTags.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                                No tags available. Click "Create Tag" to add
-                                one.
-                            </p>
-                        ) : (
-                            sortedTags.map((tag) => (
-                                <div
-                                    key={tag.id}
-                                    className="flex items-center space-x-2"
-                                >
-                                    <Checkbox
-                                        id={`tag-${tag.id}`}
-                                        checked={form.data.tag_ids.includes(
-                                            tag.id
-                                        )}
-                                        onCheckedChange={() =>
-                                            toggleTag(tag.id)
-                                        }
-                                    />
-                                    <Label
-                                        htmlFor={`tag-${tag.id}`}
-                                        className="text-sm font-normal cursor-pointer"
-                                    >
-                                        {tag.tag_text}
-                                    </Label>
-                                </div>
-                            ))
-                        )}
-                    </div>
+                    <TagCombobox
+                        tags={tags}
+                        selectedTagIds={form.data.tag_ids || []}
+                        onSelectionChange={handleTagSelectionChange}
+                        placeholder="Search tags..."
+                    />
                     <InputError message={form.errors.tag_ids} />
                 </div>
 
@@ -463,9 +458,8 @@ export function QuestionForm({
                             {form.data.options.map((option, index) => (
                                 <div key={index}>
                                     <Label
-                                        htmlFor={`explanation-option-${
-                                            index + 1
-                                        }`}
+                                        htmlFor={`explanation-option-${index + 1
+                                            }`}
                                         className="text-xs text-muted-foreground"
                                     >
                                         Explanation for Option {index + 1}
@@ -479,9 +473,8 @@ export function QuestionForm({
                                         id={`explanation-option-${index + 1}`}
                                         value={
                                             form.data.explanations[
-                                                `option${
-                                                    index + 1
-                                                }` as keyof typeof form.data.explanations
+                                            `option${index + 1
+                                            }` as keyof typeof form.data.explanations
                                             ] || ""
                                         }
                                         onChange={(e) =>
@@ -492,13 +485,11 @@ export function QuestionForm({
                                             })
                                         }
                                         rows={2}
-                                        placeholder={`Why option ${
-                                            index + 1
-                                        } is ${
-                                            option.is_correct
+                                        placeholder={`Why option ${index + 1
+                                            } is ${option.is_correct
                                                 ? "correct"
                                                 : "wrong"
-                                        }...`}
+                                            }...`}
                                         className="mt-1"
                                     />
                                 </div>
@@ -552,8 +543,8 @@ export function QuestionForm({
                                         ? "Saving..."
                                         : "Creating..."
                                     : isEditMode
-                                    ? "Save as Draft"
-                                    : "Create Question"}
+                                        ? "Save as Draft"
+                                        : "Create Question"}
                             </Button>
                         ) : (
                             <Button
@@ -566,8 +557,8 @@ export function QuestionForm({
                                         ? "Saving..."
                                         : "Creating..."
                                     : isEditMode
-                                    ? "Save as Draft"
-                                    : "Create Question"}
+                                        ? "Save as Draft"
+                                        : "Create Question"}
                             </Button>
                         )}
                     </div>

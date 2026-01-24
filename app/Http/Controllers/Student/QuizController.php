@@ -19,7 +19,7 @@ class QuizController extends Controller
             abort(403);
         }
 
-        $quiz = $attempt->quiz()->with('questions.options', 'questions.subject')->first();
+        $quiz = $attempt->quiz()->with('questions.options', 'questions.subject', 'questions.tags')->first();
         $questions = $quiz->questions;
 
         // If index is out of bounds, mark attempt as completed

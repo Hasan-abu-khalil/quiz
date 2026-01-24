@@ -45,6 +45,13 @@ export default function Index({ tags, filters }: Props) {
     const [search, setSearch] = useState(filters.search || "");
     const [isMounted, setIsMounted] = useState(false);
 
+    // Reset select all mode when filters change
+    useEffect(() => {
+        setSelectAllMode(false);
+        setSelectedIds(new Set());
+        setAllFilteredIds([]);
+    }, [search]);
+
     useEffect(() => {
         if (!isMounted) {
             setIsMounted(true);
@@ -68,6 +75,8 @@ export default function Index({ tags, filters }: Props) {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedTag, setSelectedTag] = useState<Tag | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [selectAllMode, setSelectAllMode] = useState(false);
+    const [allFilteredIds, setAllFilteredIds] = useState<number[]>([]);
 
     const handleView = (tag: Tag) => {
         setSelectedTag(tag);
@@ -97,26 +106,61 @@ export default function Index({ tags, filters }: Props) {
     };
 
     const toggleSelectAll = () => {
-        if (selectedIds.size === tags.data.length) {
+        if (selectedIds.size === tags.data.length && !selectAllMode) {
             setSelectedIds(new Set());
+            setSelectAllMode(false);
         } else {
             setSelectedIds(new Set(tags.data.map((t: Tag) => t.id)));
+            setSelectAllMode(false);
+        }
+    };
+
+    const handleSelectAllFiltered = async () => {
+        if (selectAllMode) {
+            // Deselect all
+            setSelectedIds(new Set());
+            setSelectAllMode(false);
+            setAllFilteredIds([]);
+        } else {
+            // Fetch all IDs matching current filter
+            const params = new URLSearchParams();
+            if (search) {
+                params.append("search", search);
+            }
+
+            try {
+                const response = await fetch(
+                    `/admin/tags/ids?${params.toString()}`
+                );
+                const data = await response.json();
+                setAllFilteredIds(data.ids || []);
+                setSelectedIds(new Set(data.ids || []));
+                setSelectAllMode(true);
+            } catch (error) {
+                console.error("Failed to fetch all tag IDs:", error);
+            }
         }
     };
 
     const handleBulkDelete = () => {
         if (selectedIds.size === 0) return;
 
+        const idsToDelete = selectAllMode
+            ? allFilteredIds
+            : Array.from(selectedIds);
+
         if (
             confirm(
-                `Are you sure you want to delete ${selectedIds.size} tag(s)?`
+                `Are you sure you want to delete ${idsToDelete.length} tag(s)?`
             )
         ) {
-            router.delete(route("admin.tags.bulkDestroy"), {
-                data: { ids: Array.from(selectedIds) },
+            router.delete("/admin/tags/bulk", {
+                data: { ids: idsToDelete },
                 preserveScroll: true,
                 onSuccess: () => {
                     setSelectedIds(new Set());
+                    setSelectAllMode(false);
+                    setAllFilteredIds([]);
                     router.reload({ only: ["tags"] });
                 },
             });
@@ -141,20 +185,36 @@ export default function Index({ tags, filters }: Props) {
                         <div className="flex items-center justify-between">
                             <CardTitle>Tags</CardTitle>
                             <div className="flex items-center gap-4">
-                                {selectedIds.size > 0 && (
-                                    <>
-                                        <span className="text-sm text-muted-foreground">
-                                            {selectedIds.size} selected
-                                        </span>
-                                        <Button
-                                            variant="destructive"
-                                            onClick={handleBulkDelete}
-                                        >
-                                            <Trash2 className="h-4 w-4 mr-1" />
-                                            Delete Selected
-                                        </Button>
-                                    </>
-                                )}
+                                <div className="flex items-center gap-4">
+                                    {selectedIds.size > 0 && (
+                                        <>
+                                            <span className="text-sm text-muted-foreground">
+                                                {selectAllMode
+                                                    ? `All ${selectedIds.size} selected`
+                                                    : `${selectedIds.size} selected`}
+                                            </span>
+                                            <Button
+                                                variant="destructive"
+                                                onClick={handleBulkDelete}
+                                            >
+                                                <Trash2 className="h-4 w-4 mr-1" />
+                                                Delete Selected
+                                            </Button>
+                                        </>
+                                    )}
+                                    {tags.total !== undefined &&
+                                        tags.total > 0 && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleSelectAllFiltered}
+                                            >
+                                                {selectAllMode
+                                                    ? `Deselect All (${tags.total})`
+                                                    : `Select All (${tags.total})`}
+                                            </Button>
+                                        )}
+                                </div>
                                 <Button
                                     onClick={() => setCreateDialogOpen(true)}
                                 >
@@ -182,9 +242,10 @@ export default function Index({ tags, filters }: Props) {
                                     <TableHead className="w-12">
                                         <Checkbox
                                             checked={
-                                                tags.data.length > 0 &&
-                                                selectedIds.size ===
-                                                    tags.data.length
+                                                selectAllMode ||
+                                                (tags.data.length > 0 &&
+                                                    selectedIds.size ===
+                                                        tags.data.length)
                                             }
                                             onCheckedChange={toggleSelectAll}
                                         />

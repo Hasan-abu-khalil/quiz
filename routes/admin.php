@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\TagSubjectController;
 use App\Http\Controllers\PermissionRoleController;
 use App\Http\Controllers\PermissionsController;
 use App\Http\Controllers\QuestionController;
@@ -91,6 +92,7 @@ Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
     Route::delete('/admin/questions/bulk', [QuestionController::class, 'bulkDestroy'])->name('admin.questions.bulkDestroy');
 
     // Question fetching routes (for quiz creation) - must come before parameterized routes
+    Route::get('/admin/questions/tags-by-subject/{subjectId?}', [QuestionController::class, 'tagsBySubject'])->name('admin.questions.tagsBySubject');
     Route::get('/admin/questions/by-subject/{subjectId}', [QuestionController::class, 'bySubject'])->name('admin.questions.bySubject');
     Route::get('/admin/questions/by-subjects', [QuestionController::class, 'bySubjects'])->name('admin.questions.bySubjects');
     Route::post('/admin/questions/adaptive', [\App\Http\Controllers\Student\AdaptiveQuizController::class, 'generate'])->name('admin.questions.adaptive');
@@ -159,6 +161,7 @@ Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
 
     // Tag
     Route::get('/admin/tags', [TagController::class, 'index'])->name('admin.tags.index');
+    Route::get('/admin/tags/ids', [TagController::class, 'getIds'])->name('admin.tags.ids');
     Route::post('/admin/tags', [TagController::class, 'create'])->name('admin.tags.create');
     Route::delete('/admin/tags/bulk', [TagController::class, 'bulkDestroy'])->name('admin.tags.bulkDestroy');
     Route::get('/admin/tags/{id}', [TagController::class, 'show'])->name('admin.tags.show');
@@ -173,4 +176,7 @@ Route::middleware(['auth', 'role:admin,teacher'])->group(function () {
     Route::get('/admin/question-tags/{id}/edit', [QuestionTagController::class, 'edit'])->name('admin.questionTags.edit');
     Route::post('/admin/question-tags/{id}', [QuestionTagController::class, 'update'])->name('admin.questionTags.update');
     Route::delete('/admin/question-tags/{id}', [QuestionTagController::class, 'destroy'])->name('admin.questionTags.destroy');
+
+    // Tag-Subject Pivot Relationships
+    Route::get('/admin/tag-subjects', [TagSubjectController::class, 'index'])->name('admin.tagSubjects.index');
 });

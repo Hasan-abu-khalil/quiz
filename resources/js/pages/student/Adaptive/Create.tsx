@@ -22,25 +22,84 @@ import InputError from "@/components/input-error";
 import { handleFormErrors } from "@/lib/utils";
 import { ArrowLeft, LoaderCircle } from "lucide-react";
 import { route } from "ziggy-js";
+import { TagCombobox } from "@/components/TagCombobox";
 
 interface Subject {
     id: number;
     name: string;
 }
 
-interface Props {
-    subjects: Subject[];
+interface Tag {
+    id: number;
+    tag_text: string;
 }
 
-export default function Create({ subjects }: Props) {
+interface Props {
+    subjects: Subject[];
+    tags: Tag[];
+}
+
+export default function Create({ subjects, tags }: Props) {
+    const [availableTags, setAvailableTags] = React.useState<Tag[]>(tags);
+    const [selectedTagIds, setSelectedTagIds] = React.useState<number[]>([]);
+
     const form = useForm({
         total_questions: "",
         strategy: "mixed",
         subject_ids: [] as number[],
+        tag_ids: [] as number[],
         title: "",
         time_limit_minutes: "",
         is_public: false,
     });
+
+    // Filter tags by selected subjects
+    React.useEffect(() => {
+        if (form.data.subject_ids.length > 0) {
+            // Fetch tags for selected subjects
+            const subjectIds = form.data.subject_ids;
+            Promise.all(
+                subjectIds.map((subjectId) =>
+                    fetch(`/student/questions/tags-by-subject/${subjectId}`)
+                        .then((res) => {
+                            if (!res.ok) {
+                                throw new Error(`HTTP error! status: ${res.status}`);
+                            }
+                            return res.json();
+                        })
+                        .catch((error) => {
+                            console.error(`Error fetching tags for subject ${subjectId}:`, error);
+                            return [];
+                        })
+                )
+            )
+                .then((results) => {
+                    // Combine and deduplicate tags from all selected subjects
+                    const allTags = results.flat();
+                    const uniqueTags = Array.from(
+                        new Map(allTags.map((tag: Tag) => [tag.id, tag])).values()
+                    );
+                    setAvailableTags(uniqueTags);
+                    // Filter selected tags to only include available ones
+                    const validTagIds = uniqueTags.map((t) => t.id);
+                    setSelectedTagIds((prev) =>
+                        prev.filter((id) => validTagIds.includes(id))
+                    );
+                })
+                .catch((error) => {
+                    console.error('Error fetching tags:', error);
+                    setAvailableTags([]);
+                });
+        } else {
+            // If no subjects selected, show all tags
+            setAvailableTags(tags);
+        }
+    }, [form.data.subject_ids, tags]);
+
+    // Sync selectedTagIds with form
+    React.useEffect(() => {
+        form.setData("tag_ids", selectedTagIds);
+    }, [selectedTagIds]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -219,6 +278,24 @@ export default function Create({ subjects }: Props) {
                                 </div>
                                 <InputError
                                     message={form.errors.subject_ids}
+                                    className="mt-1"
+                                />
+                            </div>
+
+                            {/* Tag Selection */}
+                            <div className="space-y-2">
+                                <Label>Tags (Optional)</Label>
+                                <p className="text-sm text-muted-foreground mb-3">
+                                    Filter questions by specific tags. If subjects are selected, only tags from those subjects will be shown.
+                                </p>
+                                <TagCombobox
+                                    tags={availableTags}
+                                    selectedTagIds={selectedTagIds}
+                                    onSelectionChange={setSelectedTagIds}
+                                    placeholder="Search tags to filter..."
+                                />
+                                <InputError
+                                    message={form.errors.tag_ids}
                                     className="mt-1"
                                 />
                             </div>

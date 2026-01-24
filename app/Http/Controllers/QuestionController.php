@@ -44,6 +44,19 @@ class QuestionController extends Controller
             $query->where('subject_id', $request->subject_id);
         }
 
+        // Tag filter
+        $tagIds = $request->get('tag_id', []);
+        if (! is_array($tagIds)) {
+            $tagIds = $tagIds ? [$tagIds] : [];
+        }
+        $tagIds = array_filter(array_map('intval', $tagIds));
+
+        if (! empty($tagIds)) {
+            $query->whereHas('tags', function ($q) use ($tagIds) {
+                $q->whereIn('tags.id', $tagIds);
+            });
+        }
+
         // Search
         if ($request->has('search') && ! empty($request->search)) {
             $search = $request->search;
@@ -656,6 +669,19 @@ class QuestionController extends Controller
             $query->where('subject_id', $request->subject_id);
         }
 
+        // Tag filter
+        $tagIds = $request->get('tag_id', []);
+        if (! is_array($tagIds)) {
+            $tagIds = $tagIds ? [$tagIds] : [];
+        }
+        $tagIds = array_filter(array_map('intval', $tagIds));
+
+        if (! empty($tagIds)) {
+            $query->whereHas('tags', function ($q) use ($tagIds) {
+                $q->whereIn('tags.id', $tagIds);
+            });
+        }
+
         // Search
         if ($request->has('search') && ! empty($request->search)) {
             $search = $request->search;
@@ -1155,12 +1181,25 @@ class QuestionController extends Controller
     /**
      * Get questions by single subject ID (for quiz creation)
      */
-    public function bySubject($subjectId)
+    public function bySubject($subjectId, Request $request)
     {
-        return Question::where('subject_id', $subjectId)
-            ->where('state', Question::STATE_DONE)
-            ->select('id', 'question_text')
-            ->get();
+        $query = Question::where('subject_id', $subjectId)
+            ->where('state', Question::STATE_DONE);
+
+        // Filter by tag IDs if provided
+        $tagIds = $request->get('tag_id', []);
+        if (! is_array($tagIds)) {
+            $tagIds = $tagIds ? [$tagIds] : [];
+        }
+        $tagIds = array_filter(array_map('intval', $tagIds));
+
+        if (! empty($tagIds)) {
+            $query->whereHas('tags', function ($q) use ($tagIds) {
+                $q->whereIn('tags.id', $tagIds);
+            });
+        }
+
+        return $query->select('id', 'question_text')->get();
     }
 
     /**
@@ -1256,6 +1295,22 @@ class QuestionController extends Controller
 
         // Return all questions if no total_questions specified
         return response()->json($allQuestions->values()->toArray());
+    }
+
+    /**
+     * Get tags by subject ID (for question form and filtering)
+     */
+    public function tagsBySubject(Request $request, $subjectId = null)
+    {
+        $tagsQuery = Tag::select('id', 'tag_text');
+
+        if ($subjectId) {
+            $tagsQuery->whereHas('subjects', function ($q) use ($subjectId) {
+                $q->where('subjects.id', $subjectId);
+            });
+        }
+
+        return response()->json($tagsQuery->get());
     }
 
     /**

@@ -21,4 +21,10 @@ class Subject extends Model
     {
         return $this->hasMany(Quiz::class, 'subject_id', 'id');
     }
+
+    public function tags()
+    {
+        return $this->belongsToMany(Tag::class, 'subject_tag')
+            ->withTimestamps();
+    }
 }

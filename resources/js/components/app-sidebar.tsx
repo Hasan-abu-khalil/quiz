@@ -14,6 +14,7 @@ import {
     ClipboardList,
     Tag,
     Book,
+    Link2,
 } from "lucide-react";
 import AppLogo from "./app-logo";
 
@@ -50,7 +51,6 @@ const mainNavItems = [
                 icon: BookOpen,
                 role: ["admin", "teacher"],
             },
-
             {
                 title: "Attempts",
                 href: "/admin/attempts",
@@ -61,6 +61,17 @@ const mainNavItems = [
                 title: "Tags",
                 href: "/admin/tags",
                 icon: Tag,
+                role: ["admin", "teacher"],
+            },
+        ],
+    },
+    {
+        title: "Relationships",
+        items: [
+            {
+                title: "Tag-Subject",
+                href: "/admin/tag-subjects",
+                icon: Link2,
                 role: ["admin", "teacher"],
             },
         ],

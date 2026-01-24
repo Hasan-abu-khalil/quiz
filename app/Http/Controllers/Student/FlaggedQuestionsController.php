@@ -30,7 +30,7 @@ class FlaggedQuestionsController extends Controller
 
         // جلب الأسئلة الموسومة (flagged) لهذا الطالب
         $query = $user->flaggedQuestions()
-            ->with(['subject:id,name', 'options']);
+            ->with(['subject:id,name', 'options', 'tags']);
 
         // Filter by subject if provided
         if ($request->has('subject_id') && $request->subject_id !== 'all') {
@@ -56,6 +56,12 @@ class FlaggedQuestionsController extends Controller
                 'id' => $question->id,
                 'question_text' => $question->question_text,
                 'subject' => $question->subject,
+                'tags' => $question->tags->map(function ($tag) {
+                    return [
+                        'id' => $tag->id,
+                        'tag_text' => $tag->tag_text,
+                    ];
+                }),
                 'options' => $question->options->map(function ($opt) {
                     return [
                         'id' => $opt->id,

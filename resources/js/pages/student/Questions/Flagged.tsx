@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SmartPagination } from "@/components/common/SmartPagination";
 import { SubjectBadge } from "@/components/common/SubjectBadge";
+import { TagBadge } from "@/components/common/TagBadge";
 import { useState } from "react";
 import {
     ArrowLeft,
@@ -23,6 +24,11 @@ interface Subject {
     name: string;
 }
 
+interface Tag {
+    id: number;
+    tag_text: string;
+}
+
 interface Option {
     id: number;
     option_text: string;
@@ -33,6 +39,7 @@ interface Question {
     id: number;
     question_text: string;
     subject: Subject | null;
+    tags?: Tag[];
     options: Option[];
     selected_option_id: number | null;
     is_correct: boolean | null;
@@ -209,13 +216,20 @@ export default function FlaggedQuestions({
                                         <CardHeader>
                                             <div className="flex items-start justify-between">
                                                 <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-2">
+                                                    <div className="flex flex-col gap-1.5 mb-2">
                                                         {question.subject && (
                                                             <SubjectBadge
                                                                 subject={
                                                                     question.subject
                                                                 }
                                                             />
+                                                        )}
+                                                        {question.tags && question.tags.length > 0 && (
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {question.tags.map((tag) => (
+                                                                    <TagBadge key={tag.id} tag={tag} />
+                                                                ))}
+                                                            </div>
                                                         )}
                                                     </div>
                                                     <CardTitle className="text-lg">

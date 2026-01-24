@@ -161,6 +161,10 @@ class QuestionsSheetImport implements ToCollection, WithEvents, WithHeadingRow
                     'tag_text' => trim((string) $row['topic']),
                 ]);
                 $tagsToSync[] = $topicTag->id;
+                // Associate tag with question's subject
+                if ($question->subject_id) {
+                    $topicTag->subjects()->syncWithoutDetaching([$question->subject_id]);
+                }
             }
 
             // Sub_Topic tag (handle various formats: sub_topic, subtopic, sub-topic)
@@ -170,6 +174,10 @@ class QuestionsSheetImport implements ToCollection, WithEvents, WithHeadingRow
                     'tag_text' => trim((string) $subTopic),
                 ]);
                 $tagsToSync[] = $subTopicTag->id;
+                // Associate tag with question's subject
+                if ($question->subject_id) {
+                    $subTopicTag->subjects()->syncWithoutDetaching([$question->subject_id]);
+                }
             }
 
             // Sync all tags (replace existing with imported tags)

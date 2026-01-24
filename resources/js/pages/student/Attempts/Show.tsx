@@ -7,11 +7,17 @@ import { route } from "ziggy-js";
 import { CheckCircle2, XCircle, Circle, Flag } from "lucide-react";
 import { SmartPagination } from "@/components/common/SmartPagination";
 import { SubjectBadge } from "@/components/common/SubjectBadge";
+import { TagBadge } from "@/components/common/TagBadge";
 import { cn } from "@/lib/utils";
 
 interface Subject {
     id: number;
     name: string;
+}
+
+interface Tag {
+    id: number;
+    tag_text: string;
 }
 
 interface Option {
@@ -24,6 +30,7 @@ interface Question {
     id: number;
     question_text: string;
     subject: Subject | null;
+    tags?: Tag[];
     options: Option[];
     explanations?: Record<string, string>;
 }
@@ -89,18 +96,66 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
         }
     };
 
-    const scrollToQuestion = (questionId: number) => {
+    const scrollToQuestion = (questionId: number, retries = 0) => {
         const element = document.getElementById(`question-${questionId}`);
         if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (retries < 5) {
+            // Retry if element not found (might still be loading)
+            setTimeout(() => {
+                scrollToQuestion(questionId, retries + 1);
+            }, 100);
         }
     };
 
     const navigateToQuestion = (questionId: number, page: number) => {
+        // Validate and clamp page number - ensure it's within valid range
+        let validPage = page;
+        if (page < 1) {
+            validPage = 1;
+        } else if (page > answers.last_page) {
+            validPage = answers.last_page;
+        }
+
+        // If page seems wrong (e.g., equals question ID), recalculate it
+        if (validPage === questionId || validPage > 1000) {
+            // Find the question in questions_index to get correct page
+            const questionInfo = questions_index.find(q => q.id === questionId);
+            if (questionInfo) {
+                validPage = questionInfo.page;
+            } else {
+                // Fallback: calculate based on question position
+                const questionIndex = questions_index.findIndex(q => q.id === questionId);
+                if (questionIndex >= 0) {
+                    const perPage = answers.per_page || 5;
+                    validPage = Math.floor(questionIndex / perPage) + 1;
+                } else {
+                    console.error(`Question ${questionId} not found in questions_index`);
+                    return;
+                }
+            }
+        }
+
+        // Check if we're already on the target page
+        if (answers.current_page === validPage) {
+            // If already on the page, just scroll
+            scrollToQuestion(questionId);
+            return;
+        }
+
         // Navigate to the page containing the question
-        const url = answers.links.find(
-            (link) => link.label === String(page) && link.url,
+        // Try to find the URL in links first
+        let url = answers.links.find(
+            (link) => link.label === String(validPage) && link.url,
         )?.url;
+
+        // If not found in links, build the URL using route helper
+        if (!url) {
+            const baseUrl = route("student.attempts.show", attempt.id);
+            const params = new URLSearchParams();
+            params.set('page', String(validPage));
+            url = `${baseUrl}?${params.toString()}`;
+        }
 
         if (url) {
             router.visit(url, {
@@ -110,11 +165,11 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
                     // Scroll to question after page loads
                     setTimeout(() => {
                         scrollToQuestion(questionId);
-                    }, 100);
+                    }, 300);
                 },
             });
         } else {
-            // If already on the page, just scroll
+            // Fallback: just scroll (might be on same page)
             scrollToQuestion(questionId);
         }
     };
@@ -175,20 +230,27 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
                 {questions_index && questions_index.length > 0 && (
                     <Card>
                         <CardContent className="p-0 flex flex-wrap gap-2">
-                            {questions_index.map((q, index) => (
-                                <button
-                                    key={q.id}
-                                    onClick={() => navigateToQuestion(q.id, q.page)}
-                                    className={cn(
-                                        'w-7 h-7 rounded-full border-2 flex items-center justify-center text-sm font-bold text-white transition-all hover:scale-110 shadow-sm',
-                                        getQuestionColor(q),
-                                        answers.current_page === q.page && 'ring-2 ring-blue-500 ring-offset-2'
-                                    )}
-                                    title={`Question ${q.index}${q.is_answered ? (q.is_correct ? ' (Correct)' : ' (Incorrect)') : ' (Unanswered)'}`}
-                                >
-                                    {index + 1}
-                                </button>
-                            ))}
+                            {questions_index.map((q, index) => {
+                                // Calculate page number based on per_page (5 questions per page)
+                                const perPage = answers.per_page || 5;
+                                const calculatedPage = Math.floor(index / perPage) + 1;
+                                // Use calculated page if q.page seems invalid (too large)
+                                const page = (q.page > 0 && q.page <= answers.last_page) ? q.page : calculatedPage;
+
+                                return (
+                                    <button
+                                        key={q.id}
+                                        onClick={() => navigateToQuestion(q.id, page)}
+                                        className={cn(
+                                            'w-7 h-7 rounded-full border-2 flex items-center justify-center text-sm font-bold text-white transition-all hover:scale-110 shadow-sm',
+                                            getQuestionColor(q),
+                                        )}
+                                        title={`Question ${q.index}${q.is_answered ? (q.is_correct ? ' (Correct)' : ' (Incorrect)') : ' (Unanswered)'}`}
+                                    >
+                                        {index + 1}
+                                    </button>
+                                );
+                            })}
                         </CardContent>
                     </Card>
                 )}
@@ -220,13 +282,20 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
                                 >
                                     <CardHeader>
                                         <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex flex-col gap-1.5">
                                                 {question.subject && (
                                                     <SubjectBadge
                                                         subject={
                                                             question.subject
                                                         }
                                                     />
+                                                )}
+                                                {question.tags && question.tags.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {question.tags.map((tag) => (
+                                                            <TagBadge key={tag.id} tag={tag} />
+                                                        ))}
+                                                    </div>
                                                 )}
                                             </div>
                                             <Button
@@ -271,7 +340,7 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
                                             </Button>
                                         </div>
                                         <CardTitle>
-                                            Q{answers.from + aIndex}.{" "}
+                                            <span className="text-muted-foreground text-xl">Q{answers.from + aIndex}. </span>
                                             {question.question_text}
                                         </CardTitle>
                                     </CardHeader>

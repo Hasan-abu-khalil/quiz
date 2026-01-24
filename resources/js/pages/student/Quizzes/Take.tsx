@@ -15,10 +15,16 @@ import {
     Flag,
 } from "lucide-react";
 import { SubjectBadge } from "@/components/common/SubjectBadge";
+import { TagBadge } from "@/components/common/TagBadge";
 
 interface Subject {
     id: number;
     name: string;
+}
+
+interface Tag {
+    id: number;
+    tag_text: string;
 }
 
 interface Option {
@@ -30,6 +36,7 @@ interface Question {
     id: number;
     question_text: string;
     subject: Subject | null;
+    tags?: Tag[];
     options: Option[];
 }
 
@@ -86,7 +93,13 @@ export default function QuizTake({
 
     const handleFinish = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!form.data.answer) return;
+
+        if (!form.data.answer) {
+            router.visit(
+                route("student.attempts.take.single", [attempt.id, qIndex + 1])
+            );
+            return;
+        }
 
         form.post(
             route("student.attempts.submit.single", [attempt.id, qIndex])
@@ -114,9 +127,18 @@ export default function QuizTake({
                 <Card>
                     <CardHeader>
                         <div className="flex items-start justify-between mb-2">
-                            {question.subject && (
-                                <SubjectBadge subject={question.subject} />
-                            )}
+                            <div className="flex flex-col gap-1.5">
+                                {question.subject && (
+                                    <SubjectBadge subject={question.subject} />
+                                )}
+                                {question.tags && question.tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                        {question.tags.map((tag) => (
+                                            <TagBadge key={tag.id} tag={tag} />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -214,7 +236,7 @@ export default function QuizTake({
                                             type="button"
                                             onClick={handleFinish}
                                             disabled={
-                                                !form.data.answer ||
+
                                                 form.processing
                                             }
                                         >

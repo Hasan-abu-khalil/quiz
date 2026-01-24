@@ -18,4 +18,10 @@ class Tag extends Model
     {
         return $this->belongsToMany(Question::class, 'question_tags');
     }
+
+    public function subjects()
+    {
+        return $this->belongsToMany(Subject::class, 'subject_tag')
+            ->withTimestamps();
+    }
 }

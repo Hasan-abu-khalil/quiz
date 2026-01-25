@@ -86,7 +86,11 @@ interface Props {
     questions_index: QuestionIndex[];
 }
 
-export default function AttemptsShow({ attempt, answers, questions_index }: Props) {
+export default function AttemptsShow({
+    attempt,
+    answers,
+    questions_index,
+}: Props) {
     const handlePageChange = (url: string | null) => {
         if (url) {
             router.visit(url, {
@@ -99,7 +103,7 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
     const scrollToQuestion = (questionId: number, retries = 0) => {
         const element = document.getElementById(`question-${questionId}`);
         if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
         } else if (retries < 5) {
             // Retry if element not found (might still be loading)
             setTimeout(() => {
@@ -120,17 +124,23 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
         // If page seems wrong (e.g., equals question ID), recalculate it
         if (validPage === questionId || validPage > 1000) {
             // Find the question in questions_index to get correct page
-            const questionInfo = questions_index.find(q => q.id === questionId);
+            const questionInfo = questions_index.find(
+                (q) => q.id === questionId,
+            );
             if (questionInfo) {
                 validPage = questionInfo.page;
             } else {
                 // Fallback: calculate based on question position
-                const questionIndex = questions_index.findIndex(q => q.id === questionId);
+                const questionIndex = questions_index.findIndex(
+                    (q) => q.id === questionId,
+                );
                 if (questionIndex >= 0) {
                     const perPage = answers.per_page || 5;
                     validPage = Math.floor(questionIndex / perPage) + 1;
                 } else {
-                    console.error(`Question ${questionId} not found in questions_index`);
+                    console.error(
+                        `Question ${questionId} not found in questions_index`,
+                    );
                     return;
                 }
             }
@@ -153,7 +163,7 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
         if (!url) {
             const baseUrl = route("student.attempts.show", attempt.id);
             const params = new URLSearchParams();
-            params.set('page', String(validPage));
+            params.set("page", String(validPage));
             url = `${baseUrl}?${params.toString()}`;
         }
 
@@ -175,14 +185,15 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
     };
 
     const getQuestionColor = (q: QuestionIndex) => {
-        console.log(q);
         if (!q.is_answered) {
-            return 'text-gray-500 border-gray-500'; // Gray for unanswered
+            return "text-gray-500 border-gray-500";
         }
-        if (q.is_correct === true) {
-            return 'text-green-500 border-green-500'; // Green for correct
+
+        if (q.is_correct) {
+            return "text-green-500 border-green-500";
         }
-        return 'text-red-500 border-red-500'; // Red for incorrect
+
+        return "text-red-500 border-red-500";
     };
 
     return (
@@ -233,19 +244,25 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
                             {questions_index.map((q, index) => {
                                 // Calculate page number based on per_page (5 questions per page)
                                 const perPage = answers.per_page || 5;
-                                const calculatedPage = Math.floor(index / perPage) + 1;
+                                const calculatedPage =
+                                    Math.floor(index / perPage) + 1;
                                 // Use calculated page if q.page seems invalid (too large)
-                                const page = (q.page > 0 && q.page <= answers.last_page) ? q.page : calculatedPage;
+                                const page =
+                                    q.page > 0 && q.page <= answers.last_page
+                                        ? q.page
+                                        : calculatedPage;
 
                                 return (
                                     <button
                                         key={q.id}
-                                        onClick={() => navigateToQuestion(q.id, page)}
+                                        onClick={() =>
+                                            navigateToQuestion(q.id, page)
+                                        }
                                         className={cn(
-                                            'w-7 h-7 rounded-full border-2 flex items-center justify-center text-sm font-bold text-white transition-all hover:scale-110 shadow-sm',
+                                            "w-7 h-7 rounded-full border-2 flex items-center justify-center text-sm font-bold text-white transition-all hover:scale-110 shadow-sm",
                                             getQuestionColor(q),
                                         )}
-                                        title={`Question ${q.index}${q.is_answered ? (q.is_correct ? ' (Correct)' : ' (Incorrect)') : ' (Unanswered)'}`}
+                                        title={`Question ${q.index}${q.is_answered ? (q.is_correct ? " (Correct)" : " (Incorrect)") : " (Unanswered)"}`}
                                     >
                                         {index + 1}
                                     </button>
@@ -290,13 +307,24 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
                                                         }
                                                     />
                                                 )}
-                                                {question.tags && question.tags.length > 0 && (
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {question.tags.map((tag) => (
-                                                            <TagBadge key={tag.id} tag={tag} />
-                                                        ))}
-                                                    </div>
-                                                )}
+                                                {question.tags &&
+                                                    question.tags.length >
+                                                        0 && (
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {question.tags.map(
+                                                                (tag) => (
+                                                                    <TagBadge
+                                                                        key={
+                                                                            tag.id
+                                                                        }
+                                                                        tag={
+                                                                            tag
+                                                                        }
+                                                                    />
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                    )}
                                             </div>
                                             <Button
                                                 variant="ghost"
@@ -332,15 +360,18 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
                                                 }
                                             >
                                                 <Flag
-                                                    className={`h-5 w-5 ${answer.is_flagged
-                                                        ? "fill-current"
-                                                        : ""
-                                                        }`}
+                                                    className={`h-5 w-5 ${
+                                                        answer.is_flagged
+                                                            ? "fill-current"
+                                                            : ""
+                                                    }`}
                                                 />
                                             </Button>
                                         </div>
                                         <CardTitle>
-                                            <span className="text-muted-foreground text-xl">Q{answers.from + aIndex}. </span>
+                                            <span className="text-muted-foreground text-xl">
+                                                Q{answers.from + aIndex}.{" "}
+                                            </span>
                                             {question.question_text}
                                         </CardTitle>
                                     </CardHeader>
@@ -349,7 +380,8 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
                                             const isSelected =
                                                 option.id === selectedId;
                                             const isCorrect = option.is_correct;
-                                            const studentAnswered = selectedId !== null;
+                                            const studentAnswered =
+                                                selectedId !== null;
 
                                             // تحديد لون النص والخلفية
                                             let textColor =
@@ -359,8 +391,10 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
                                             if (studentAnswered) {
                                                 // Student answered - show check/X based on selection
                                                 if (isSelected && isCorrect) {
-                                                    textColor = "text-green-600";
-                                                    IconComponent = CheckCircle2;
+                                                    textColor =
+                                                        "text-green-600";
+                                                    IconComponent =
+                                                        CheckCircle2;
                                                 } else if (
                                                     isSelected &&
                                                     !isCorrect
@@ -369,13 +403,15 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
                                                     IconComponent = XCircle;
                                                 } else if (isCorrect) {
                                                     // Correct answer but not selected
-                                                    textColor = "text-green-600";
+                                                    textColor =
+                                                        "text-green-600";
                                                     IconComponent = Circle;
                                                 }
                                             } else {
                                                 // Student didn't answer - only show color for correct option
                                                 if (isCorrect) {
-                                                    textColor = "text-green-600";
+                                                    textColor =
+                                                        "text-green-600";
                                                 }
                                                 IconComponent = Circle;
                                             }
@@ -426,9 +462,18 @@ export default function AttemptsShow({ attempt, answers, questions_index }: Prop
                                                             key={key}
                                                             className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md"
                                                         >
-                                                            <strong className={cn("text-foreground", {
-                                                                "hidden": key === "correct" || key === "wrong"
-                                                            })}>
+                                                            <strong
+                                                                className={cn(
+                                                                    "text-foreground",
+                                                                    {
+                                                                        hidden:
+                                                                            key ===
+                                                                                "correct" ||
+                                                                            key ===
+                                                                                "wrong",
+                                                                    },
+                                                                )}
+                                                            >
                                                                 {key} :
                                                             </strong>
                                                             {value}

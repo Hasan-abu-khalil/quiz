@@ -22,8 +22,7 @@ class QuizController extends Controller
         $quiz = $attempt->quiz()->with('questions.options', 'questions.subject', 'questions.tags')->first();
         $questions = $quiz->questions;
 
-        // If index is out of bounds, mark attempt as completed
-        if (! isset($questions[$questionIndex])) {
+        if (!isset($questions[$questionIndex])) {
             $attempt->update([
                 'ended_at' => now(),
                 'score' => $attempt->answers()->where('is_correct', true)->count(),
@@ -34,23 +33,31 @@ class QuizController extends Controller
         }
 
         $question = $questions[$questionIndex];
-
-        // Load existing answer if any
         $existingAnswer = $attempt->answers()->where('question_id', $question->id)->first();
         $selectedAnswer = $existingAnswer ? (string) $existingAnswer->selected_option_id : '';
-
-        // Check if question is flagged by current user
         $isFlagged = Auth::user()->flaggedQuestions()->where('question_id', $question->id)->exists();
+
+        // ⬅ التعامل مع المؤقت لجميع الحالات
+        if ($attempt->ends_at) {
+            $endsAtTimestamp = $attempt->ends_at->timestamp;
+        } elseif ($quiz->time_limit_minutes && $quiz->time_limit_minutes > 0) {
+            $endsAtTimestamp = now()->addMinutes($quiz->time_limit_minutes)->timestamp;
+            $attempt->update(['ends_at' => now()->addMinutes($quiz->time_limit_minutes)]);
+        } else {
+            $endsAtTimestamp = null; // الاختبار بدون وقت
+        }
 
         return \Inertia\Inertia::render('student/Quizzes/Take', [
             'attempt' => $attempt,
             'question' => $question,
             'questionIndex' => $questionIndex,
-            'questions' => $questions->map(fn ($q) => ['id' => $q->id]),
+            'questions' => $questions->map(fn($q) => ['id' => $q->id]),
             'selectedAnswer' => $selectedAnswer,
             'isFlagged' => $isFlagged,
+            'ends_at_timestamp' => $endsAtTimestamp,
         ]);
     }
+
 
     /**
      * Submit a single question and redirect to the next question.
@@ -62,7 +69,7 @@ class QuizController extends Controller
         }
 
         $request->validate([
-            'answer' => 'nullable|integer', // option_id
+            'answer' => 'nullable|integer',
         ]);
 
         $quiz = $attempt->quiz()->with('questions.options')->first();
@@ -74,7 +81,6 @@ class QuizController extends Controller
         $correctOption = $question->options()->where('is_correct', true)->first();
         $isCorrect = $selectedOptionId && $correctOption && $selectedOptionId == $correctOption->id;
 
-        // Save or update answer
         $attempt->answers()->updateOrCreate(
             ['question_id' => $question->id],
             [
@@ -83,7 +89,7 @@ class QuizController extends Controller
             ]
         );
 
-        // Recalculate stats after this answer
+        // Recalculate stats
         $correctCount = $attempt->answers()->where('is_correct', true)->count();
         $totalAnswered = $attempt->answers()->count();
         $incorrectCount = $totalAnswered - $correctCount;
@@ -94,7 +100,7 @@ class QuizController extends Controller
             'total_incorrect' => $incorrectCount,
         ]);
 
-        // If this is the last question, mark attempt as completed
+        // If last question, complete attempt
         if ($questionIndex + 1 >= $questions->count()) {
             $attempt->update(['ended_at' => now()]);
 
@@ -102,7 +108,6 @@ class QuizController extends Controller
                 ->with('success', 'Quiz completed!');
         }
 
-        // Redirect to next question
         return redirect()->route('student.attempts.take.single', [$attempt->id, $questionIndex + 1]);
     }
 
@@ -120,7 +125,7 @@ class QuizController extends Controller
                 'mode' => $quiz->mode,
                 'time_limit_minutes' => $quiz->time_limit_minutes,
                 'subject' => $quiz->subject,
-                'questions' => $quiz->questions->map(fn ($q) => ['id' => $q->id]),
+                'questions' => $quiz->questions->map(fn($q) => ['id' => $q->id]),
                 'total_questions' => $quiz->total_questions,
             ],
         ]);
@@ -140,13 +145,14 @@ class QuizController extends Controller
             return redirect()->back()
                 ->with('error', 'This quiz has no questions and cannot be started.');
         }
+        $totalTimeSeconds = $quiz->time_limit_minutes * 60;
 
         // create new attempt
         $attempt = QuizAttempt::create([
             'quiz_id' => $quiz->id,
             'student_id' => $user->id,
             'started_at' => now(),
-            'ended_at' => null,
+            'ends_at' => now()->addSeconds($totalTimeSeconds),
             'score' => 0,
             'total_correct' => 0,
             'total_incorrect' => 0,
@@ -155,3 +161,4 @@ class QuizController extends Controller
         return redirect()->route('student.attempts.take.single', [$attempt->id, 0]);
     }
 }
+

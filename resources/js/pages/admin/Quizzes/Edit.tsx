@@ -59,6 +59,9 @@ export default function Edit({ quiz, subjects, questions }: Props) {
         total_questions: quiz.total_questions
             ? String(quiz.total_questions)
             : "",
+        time_limit_minutes: quiz.time_limit_minutes
+            ? String(quiz.time_limit_minutes)
+            : "", // إضافة هذا الحقل
         questions: quiz.questions || [],
     });
 
@@ -96,7 +99,7 @@ export default function Edit({ quiz, subjects, questions }: Props) {
                 : Infinity;
             if ((form.data.questions?.length || 0) >= max) {
                 toast.error(
-                    `You cannot add more than ${max} questions to this quiz`
+                    `You cannot add more than ${max} questions to this quiz`,
                 );
                 return;
             }
@@ -107,11 +110,11 @@ export default function Edit({ quiz, subjects, questions }: Props) {
                 `/admin/quizzes/${quiz.id}/questions`,
                 {
                     question_id: newQuestionId,
-                }
+                },
             );
 
             const addedQuestion = questions.find(
-                (q) => q.id === parseInt(newQuestionId)
+                (q) => q.id === parseInt(newQuestionId),
             );
             if (addedQuestion) {
                 form.setData("questions", [
@@ -127,7 +130,7 @@ export default function Edit({ quiz, subjects, questions }: Props) {
             }
         } catch (error: any) {
             toast.error(
-                error.response?.data?.error || "Failed to add question"
+                error.response?.data?.error || "Failed to add question",
             );
         }
     };
@@ -135,11 +138,11 @@ export default function Edit({ quiz, subjects, questions }: Props) {
     const handleDeleteQuestion = async (questionId: number) => {
         try {
             await axios.delete(
-                `/admin/quizzes/${quiz.id}/questions/${questionId}`
+                `/admin/quizzes/${quiz.id}/questions/${questionId}`,
             );
             form.setData(
                 "questions",
-                form.data.questions?.filter((q) => q.id !== questionId) || []
+                form.data.questions?.filter((q) => q.id !== questionId) || [],
             );
             toast.success("Question deleted successfully");
         } catch (error) {
@@ -149,14 +152,14 @@ export default function Edit({ quiz, subjects, questions }: Props) {
 
     const handleUpdateOrder = async (
         quizQuestionId: number,
-        newOrder: number
+        newOrder: number,
     ) => {
         try {
             await axios.put(
                 `/admin/quizzes/${quiz.id}/questions/${quizQuestionId}/order`,
                 {
                     new_order: newOrder,
-                }
+                },
             );
 
             const updatedQuestions = (form.data.questions || []).map((q) => {
@@ -165,7 +168,7 @@ export default function Edit({ quiz, subjects, questions }: Props) {
                 }
                 if (q.order === newOrder && q.id !== quizQuestionId) {
                     const oldOrder = form.data.questions?.find(
-                        (qq) => qq.id === quizQuestionId
+                        (qq) => qq.id === quizQuestionId,
                     )?.order;
                     return { ...q, order: oldOrder ?? q.order };
                 }
@@ -194,7 +197,7 @@ export default function Edit({ quiz, subjects, questions }: Props) {
     };
 
     const sortedQuestions = [...(form.data.questions || [])].sort(
-        (a, b) => a.order - b.order
+        (a, b) => a.order - b.order,
     );
 
     const filteredSortedQuestions = sortedQuestions.filter((q) => {
@@ -243,7 +246,7 @@ export default function Edit({ quiz, subjects, questions }: Props) {
                                         onChange={(e) =>
                                             form.setData(
                                                 "title",
-                                                e.target.value
+                                                e.target.value,
                                             )
                                         }
                                     />
@@ -266,15 +269,15 @@ export default function Edit({ quiz, subjects, questions }: Props) {
                                                 onChange={(e) => {
                                                     form.setData(
                                                         "mode",
-                                                        e.target.value
+                                                        e.target.value,
                                                     );
                                                     // Update total_questions to match current questions length
                                                     form.setData(
                                                         "total_questions",
                                                         String(
                                                             form.data.questions
-                                                                ?.length || 0
-                                                        )
+                                                                ?.length || 0,
+                                                        ),
                                                     );
                                                 }}
                                                 className="w-4 h-4"
@@ -293,7 +296,7 @@ export default function Edit({ quiz, subjects, questions }: Props) {
                                                 onChange={(e) => {
                                                     form.setData(
                                                         "mode",
-                                                        e.target.value
+                                                        e.target.value,
                                                     );
                                                 }}
                                                 className="w-4 h-4"
@@ -302,6 +305,35 @@ export default function Edit({ quiz, subjects, questions }: Props) {
                                         </label>
                                     </div>
                                     <InputError message={form.errors.mode} />
+                                </div>
+
+                                {/* Time Limit (Minutes) */}
+                                <div className="grid gap-2">
+                                    <Label>
+                                        Time Limit (Minutes)
+                                        <span className="text-muted-foreground text-sm ml-1">
+                                            (Optional)
+                                        </span>
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        placeholder="Enter exam duration in minutes (leave empty for no timer)"
+                                        value={form.data.time_limit_minutes}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                "time_limit_minutes",
+                                                e.target.value,
+                                            )
+                                        }
+                                    />
+                                    <InputError
+                                        message={form.errors.time_limit_minutes}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Leave empty if you do not want a timer
+                                        for this quiz.
+                                    </p>
                                 </div>
 
                                 {/* Subject */}
@@ -344,7 +376,7 @@ export default function Edit({ quiz, subjects, questions }: Props) {
                                             onChange={(e) =>
                                                 form.setData(
                                                     "total_questions",
-                                                    e.target.value
+                                                    e.target.value,
                                                 )
                                             }
                                             placeholder="Enter number of questions to randomly select"
@@ -395,14 +427,14 @@ export default function Edit({ quiz, subjects, questions }: Props) {
                                                                         q
                                                                             .question
                                                                             .id ===
-                                                                        ques.id
-                                                                )
+                                                                        ques.id,
+                                                                ),
                                                         )
                                                         .map((ques) => (
                                                             <SelectItem
                                                                 key={ques.id}
                                                                 value={String(
-                                                                    ques.id
+                                                                    ques.id,
                                                                 )}
                                                             >
                                                                 {
@@ -426,7 +458,7 @@ export default function Edit({ quiz, subjects, questions }: Props) {
                                                           parseInt(
                                                               form.data
                                                                   .total_questions,
-                                                              10
+                                                              10,
                                                           )
                                                         : false)
                                                 }
@@ -446,7 +478,7 @@ export default function Edit({ quiz, subjects, questions }: Props) {
                                                     value={questionSearch}
                                                     onChange={(e) =>
                                                         setQuestionSearch(
-                                                            e.target.value
+                                                            e.target.value,
                                                         )
                                                     }
                                                     className="pl-8"
@@ -480,8 +512,8 @@ export default function Edit({ quiz, subjects, questions }: Props) {
                                                                 q.id,
                                                                 parseInt(
                                                                     e.target
-                                                                        .value
-                                                                ) || 1
+                                                                        .value,
+                                                                ) || 1,
                                                             )
                                                         }
                                                     />
@@ -493,7 +525,7 @@ export default function Edit({ quiz, subjects, questions }: Props) {
                                                     type="button"
                                                     onClick={() =>
                                                         handleDeleteQuestion(
-                                                            q.id
+                                                            q.id,
                                                         )
                                                     }
                                                 >
@@ -523,7 +555,7 @@ export default function Edit({ quiz, subjects, questions }: Props) {
                                         variant="outline"
                                         onClick={() =>
                                             router.visit(
-                                                route("admin.quizzes.index")
+                                                route("admin.quizzes.index"),
                                             )
                                         }
                                         disabled={form.processing}

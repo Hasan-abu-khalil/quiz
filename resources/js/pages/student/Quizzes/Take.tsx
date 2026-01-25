@@ -1,56 +1,23 @@
 import { Head, Link, router, useForm } from "@inertiajs/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import StudentLayout from "@/layouts/student";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { route } from "ziggy-js";
-import {
-    Check,
-    ChevronLeft,
-    ChevronRight,
-    DoorOpen,
-    X,
-    Flag,
-} from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, DoorOpen, Flag } from "lucide-react";
 import { SubjectBadge } from "@/components/common/SubjectBadge";
 import { TagBadge } from "@/components/common/TagBadge";
 
-interface Subject {
-    id: number;
-    name: string;
-}
-
-interface Tag {
-    id: number;
-    tag_text: string;
-}
-
-interface Option {
-    id: number;
-    option_text: string;
-}
-
-interface Question {
-    id: number;
-    question_text: string;
-    subject: Subject | null;
-    tags?: Tag[];
-    options: Option[];
-}
-
-interface Attempt {
-    id: number;
-}
-
 interface Props {
-    attempt: Attempt;
-    question: Question;
+    attempt: { id: number };
+    question: any;
     questionIndex: string;
     questions: Array<{ id: number }>;
     selectedAnswer?: string;
     isFlagged?: boolean;
+    ends_at_timestamp?: number | null;
 }
 
 export default function QuizTake({
@@ -60,67 +27,106 @@ export default function QuizTake({
     questions,
     selectedAnswer = "",
     isFlagged = false,
+    ends_at_timestamp,
 }: Props) {
-    const form = useForm({
-        answer: selectedAnswer,
-    });
-
+    const form = useForm({ answer: selectedAnswer });
     const qIndex = Number(questionIndex);
     const isFirstQuestion = qIndex === 0;
     const isLastQuestion = qIndex === questions.length - 1;
 
-    // Reset form when question changes - Inertia-native approach
-    // Using useEffect ensures form resets when question.id changes (new question loaded)
-    useEffect(() => {
-        form.reset();
-        form.setData("answer", selectedAnswer || "");
-    }, [question.id]); // Reset when question ID changes
+    const [timeLeft, setTimeLeft] = useState(() => {
+        if (!ends_at_timestamp) return null; // ⬅ بدون مؤقت
+        const now = Math.floor(Date.now() / 1000);
+        const diff = ends_at_timestamp - now;
+        return diff > 0 ? diff : 0;
+    });
 
-    const handleNext = (e: React.FormEvent) => {
-        e.preventDefault();
-        const currentAnswer = form.data.answer;
-        if (!currentAnswer || currentAnswer === "") {
-            router.visit(
-                route("student.attempts.take.single", [attempt.id, qIndex + 1])
-            );
+    useEffect(() => {
+        if (timeLeft === null) return; // ⬅ إذا الاختبار بدون مؤقت
+        if (timeLeft <= 0) {
+            finishQuiz();
             return;
         }
 
+        const timer = setInterval(() => {
+            setTimeLeft((prev) => {
+                if (!prev || prev <= 1) {
+                    clearInterval(timer);
+                    finishQuiz();
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [timeLeft]);
+
+    const finishQuiz = () => {
+        router.post(
+            route("student.attempts.submit.single", [attempt.id, qIndex]),
+            {},
+            {
+                onSuccess: () =>
+                    router.visit(route("student.attempts.show", attempt.id)),
+            },
+        );
+    };
+
+    // إعادة ضبط الإجابة عند تغير السؤال
+    useEffect(() => {
+        form.reset();
+        form.setData("answer", selectedAnswer || "");
+    }, [question.id]);
+
+    const handleNext = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!form.data.answer) {
+            router.visit(
+                route("student.attempts.take.single", [attempt.id, qIndex + 1]),
+            );
+            return;
+        }
         form.post(
-            route("student.attempts.submit.single", [attempt.id, qIndex])
+            route("student.attempts.submit.single", [attempt.id, qIndex]),
         );
     };
 
     const handleFinish = (e: React.FormEvent) => {
         e.preventDefault();
-
-        if (!form.data.answer) {
-            router.visit(
-                route("student.attempts.take.single", [attempt.id, qIndex + 1])
-            );
-            return;
-        }
-
         form.post(
-            route("student.attempts.submit.single", [attempt.id, qIndex])
+            route("student.attempts.submit.single", [attempt.id, qIndex]),
         );
     };
 
     const handlePrevious = () => {
         if (qIndex > 0) {
             router.visit(
-                route("student.attempts.take.single", [attempt.id, qIndex - 1])
+                route("student.attempts.take.single", [attempt.id, qIndex - 1]),
             );
         }
+    };
+
+    const formatTime = (seconds: number) => {
+        const hrs = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        return `${hrs > 0 ? hrs + " hr " : ""}${mins > 0 ? mins + " min " : ""}${secs} sec`;
     };
 
     return (
         <StudentLayout title="Take Quiz">
             <Head title="Take Quiz" />
             <div className="max-w-3xl mx-auto">
-                <div className="text-center mb-6">
+                <div className="text-center mb-4">
                     <p className="text-lg font-semibold">
                         Question {qIndex + 1} / {questions.length}
+                    </p>
+                    <p className="text-sm font-medium text-red-600">
+                        Time Left:{" "}
+                        {timeLeft !== null
+                            ? formatTime(timeLeft)
+                            : "No time limit"}
                     </p>
                 </div>
 
@@ -133,7 +139,7 @@ export default function QuizTake({
                                 )}
                                 {question.tags && question.tags.length > 0 && (
                                     <div className="flex flex-wrap gap-1">
-                                        {question.tags.map((tag) => (
+                                        {question.tags.map((tag: any) => (
                                             <TagBadge key={tag.id} tag={tag} />
                                         ))}
                                     </div>
@@ -147,18 +153,18 @@ export default function QuizTake({
                                         router.delete(
                                             route(
                                                 "student.questions.unflag",
-                                                question.id
+                                                question.id,
                                             ),
-                                            { preserveScroll: true }
+                                            { preserveScroll: true },
                                         );
                                     } else {
                                         router.post(
                                             route(
                                                 "student.questions.flag",
-                                                question.id
+                                                question.id,
                                             ),
                                             {},
-                                            { preserveScroll: true }
+                                            { preserveScroll: true },
                                         );
                                     }
                                 }}
@@ -178,19 +184,13 @@ export default function QuizTake({
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <form
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                            }}
-                        >
+                        <form onSubmit={(e) => e.preventDefault()}>
                             <RadioGroup
                                 value={form.data.answer}
-                                onValueChange={(value) =>
-                                    form.setData("answer", value)
-                                }
+                                onValueChange={(v) => form.setData("answer", v)}
                                 className="space-y-3"
                             >
-                                {question.options.map((option) => (
+                                {question.options.map((option: any) => (
                                     <Label
                                         key={option.id}
                                         htmlFor={`option-${option.id}`}
@@ -227,7 +227,7 @@ export default function QuizTake({
                                         onClick={handlePrevious}
                                         disabled={isFirstQuestion}
                                     >
-                                        <ChevronLeft className="mr-2 h-4 w-4" />
+                                        <ChevronLeft className="mr-2 h-4 w-4" />{" "}
                                         Back
                                     </Button>
 
@@ -235,23 +235,18 @@ export default function QuizTake({
                                         <Button
                                             type="button"
                                             onClick={handleFinish}
-                                            disabled={
-
-                                                form.processing
-                                            }
+                                            disabled={form.processing}
                                         >
-                                            <Check className="mr-2 h-4 w-4" />
+                                            <Check className="mr-2 h-4 w-4" />{" "}
                                             Finish Quiz
                                         </Button>
                                     ) : (
                                         <Button
                                             type="button"
                                             onClick={handleNext}
-                                            disabled={
-                                                form.processing
-                                            }
+                                            disabled={form.processing}
                                         >
-                                            {form.data.answer ? "Next" : "Skip"}
+                                            {form.data.answer ? "Next" : "Skip"}{" "}
                                             <ChevronRight className="ml-2 h-4 w-4" />
                                         </Button>
                                     )}

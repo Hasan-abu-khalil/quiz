@@ -55,7 +55,14 @@ export default function Create({ subjects, questions }: Props) {
         time_limit_minutes: "",
         questions: [] as Array<{ question_id: string; order: number }>,
     });
-
+    function shuffleArray<T>(array: T[]): T[] {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+    }
     const [filteredQuestions, setFilteredQuestions] =
         React.useState<Question[]>(questions);
     const [selectedSubjects, setSelectedSubjects] = React.useState<number[]>(
@@ -192,10 +199,12 @@ export default function Create({ subjects, questions }: Props) {
                     setIsLoadingQuestions(false);
                     return;
                 }
+                const shuffledQuestions = shuffleArray(data);
 
-                setFilteredQuestions(data);
+                setFilteredQuestions(shuffledQuestions);
 
-                const rows = data.map((q, index) => ({
+                // Auto-populate all questions for by_subject mode
+                const rows = shuffledQuestions.map((q, index) => ({
                     question_id: String(q.id),
                     order: index + 1,
                 }));
@@ -215,6 +224,17 @@ export default function Create({ subjects, questions }: Props) {
                 toast.error("Failed to fetch questions.");
                 setIsLoadingQuestions(false);
             });
+    };
+
+    const handleShuffleQuestions = () => {
+        const shuffled = shuffleArray(form.data.questions);
+        // Reassign order numbers after shuffling
+        const rows = shuffled.map((q, index) => ({
+            ...q,
+            order: index + 1,
+        }));
+        form.setData("questions", rows);
+        toast.success("Questions shuffled!");
     };
 
     const addRow = () => {
@@ -633,25 +653,46 @@ export default function Create({ subjects, questions }: Props) {
                                         <Label className="text-md font-semibold">
                                             Quiz Questions
                                         </Label>
-                                        {form.data.mode === "by_subject" &&
-                                            form.data.subject_id && (
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    onClick={addRow}
-                                                >
-                                                    <Plus className="mr-2 h-4 w-4" />
-                                                    Add Question
-                                                </Button>
-                                            )}
-                                        {form.data.mode === "mixed_bag" &&
-                                            form.data.questions.length > 0 && (
-                                                <span className="text-sm text-muted-foreground">
-                                                    {form.data.questions.length}{" "}
-                                                    question(s) randomly
-                                                    selected
-                                                </span>
-                                            )}
+
+                                        <div>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="secondary"
+                                                onClick={handleShuffleQuestions}
+                                                className="m-2"
+                                                disabled={
+                                                    form.data.questions
+                                                        .length === 0
+                                                }
+                                            >
+                                                🔀 Shuffle
+                                            </Button>
+                                            {form.data.mode === "by_subject" &&
+                                                form.data.subject_id && (
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        onClick={addRow}
+                                                    >
+                                                        <Plus className="mr-2 h-4 w-4" />
+                                                        Add Question
+                                                    </Button>
+                                                )}
+
+                                            {form.data.mode === "mixed_bag" &&
+                                                form.data.questions.length >
+                                                    0 && (
+                                                    <span className="text-sm text-muted-foreground">
+                                                        {
+                                                            form.data.questions
+                                                                .length
+                                                        }{" "}
+                                                        question(s) randomly
+                                                        selected
+                                                    </span>
+                                                )}
+                                        </div>
                                     </div>
                                     {form.data.mode === "by_subject" &&
                                         !form.data.subject_id && (

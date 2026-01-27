@@ -8,6 +8,7 @@ use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Log;
 use Yajra\DataTables\DataTables;
 
 class QuizController extends Controller
@@ -109,6 +110,7 @@ class QuizController extends Controller
             'questions.*.question_id' => 'required|exists:questions,id',
             'questions.*.order' => 'required|integer|min:1',
             'time_limit_minutes' => 'nullable|integer|min:1',
+            'show_explanation' => 'required|boolean',
         ];
 
         // For mixed_bag mode, total_questions is required and must match questions count
@@ -155,20 +157,29 @@ class QuizController extends Controller
             ? count($request->questions)
             : $request->total_questions;
 
+        $showExplanation = filter_var($request->input('show_explanation'), FILTER_VALIDATE_BOOLEAN);
+
         $quiz = Quiz::create([
             'title' => $request->title,
             'mode' => $request->mode,
             'subject_id' => $request->subject_id,
             'total_questions' => $totalQuestions,
             'time_limit_minutes' => $request->time_limit_minutes,
+            'show_explanation' => $showExplanation, // true or false
             'created_by' => Auth::id(),
         ]);
 
+        Log::info('Saved quiz:', [
+            'id' => $quiz->id,
+            'show_explanation' => $quiz->show_explanation,
+            'raw_request' => $request->all()
+        ]);
         foreach ($request->questions as $q) {
             QuizQuestion::create([
                 'quiz_id' => $quiz->id,
                 'question_id' => $q['question_id'],
                 'order' => $q['order'],
+                'show_explanation' => $q['show_explanation'] ?? false,
             ]);
         }
 

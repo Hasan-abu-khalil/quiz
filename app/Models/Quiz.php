@@ -17,6 +17,10 @@ class Quiz extends Model
         'subject_id',
         'time_limit_minutes',
         'total_questions',
+        'show_explanation',
+    ];
+    protected $casts = [
+        'show_explanation' => 'boolean',
     ];
 
     public function creator()

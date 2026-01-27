@@ -47,14 +47,23 @@ class QuizController extends Controller
             $endsAtTimestamp = null; // الاختبار بدون وقت
         }
 
+
+
+        $explanations = $question->explanations ?? null;
+        $showExplanationAll = $question->pivot->show_explanation ?? false;
         return \Inertia\Inertia::render('student/Quizzes/Take', [
             'attempt' => $attempt,
             'question' => $question,
             'questionIndex' => $questionIndex,
-            'questions' => $questions->map(fn($q) => ['id' => $q->id]),
+            'questions' => $questions->map(fn($q) => [
+                'id' => $q->id,
+                'show_explanation' => $q->pivot->show_explanation ?? false,
+            ]),
             'selectedAnswer' => $selectedAnswer,
             'isFlagged' => $isFlagged,
             'ends_at_timestamp' => $endsAtTimestamp,
+            'explanations' => $question->explanations,
+            'showExplanationAll' => $showExplanationAll,
         ]);
     }
 

@@ -53,6 +53,7 @@ export default function Create({ subjects, questions }: Props) {
         subject_id: "",
         total_questions: "",
         time_limit_minutes: "",
+        show_explanation: false,
         questions: [] as Array<{ question_id: string; order: number }>,
     });
     function shuffleArray<T>(array: T[]): T[] {
@@ -73,7 +74,6 @@ export default function Create({ subjects, questions }: Props) {
     const [questionSearch, setQuestionSearch] = React.useState<string>("");
     const [isLoadingQuestions, setIsLoadingQuestions] =
         React.useState<boolean>(false);
-
     // Fetch tags when subject changes (for by_subject mode)
     React.useEffect(() => {
         if (form.data.mode === "by_subject" && form.data.subject_id) {
@@ -265,7 +265,7 @@ export default function Create({ subjects, questions }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-
+        console.log("Sending data to backend:", form.data);
         // Validate based on mode
         if (form.data.mode === "by_subject") {
             if (!form.data.subject_id) {
@@ -307,7 +307,7 @@ export default function Create({ subjects, questions }: Props) {
                 router.visit(route("admin.quizzes.index"));
             },
             onError: () => {
-                handleFormErrors(form.errors);
+                toast.error("Failed to create quiz");
             },
         });
     };
@@ -450,6 +450,25 @@ export default function Create({ subjects, questions }: Props) {
                                     <p className="text-xs text-muted-foreground">
                                         Leave empty if you do not want a timer
                                         for this quiz.
+                                    </p>
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="show_explanation">
+                                        Show explanations for all questions
+                                    </Label>
+                                    <Checkbox
+                                        checked={form.data.show_explanation}
+                                        onCheckedChange={(checked) =>
+                                            form.setData(
+                                                "show_explanation",
+                                                checked ?? false,
+                                            )
+                                        }
+                                    />
+                                    <p className="text-sm text-muted-foreground">
+                                        If checked, explanations will be visible
+                                        for all questions.
                                     </p>
                                 </div>
 
